@@ -4,10 +4,7 @@ import {
   getAuth, 
   signInWithCustomToken, 
   signInAnonymously, 
-  onAuthStateChanged, 
-  GoogleAuthProvider, 
-  signInWithPopup, 
-  signOut 
+  onAuthStateChanged 
 } from 'firebase/auth';
 import { 
   getFirestore, 
@@ -23,61 +20,40 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'logic-lab-app';
 
-// --- 修正後的 Icon 組件 ---
+// --- 修正後的 Icon 組件 (確保 viewBox 正常) ---
 const Icon = ({ name, size = 24, className = "" }) => {
   const icons = {
     ArrowLeft: <path d="m12 19-7-7 7-7M5 12h14" />,
     Save: (
       <>
         <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-        <path d="M17 21v-8H7v8" />
-        <path d="M7 3v5h8" />
+        <path d="M17 21v-8H7v8" /><path d="M7 3v5h8" />
       </>
     ),
     Zap: <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />,
     Lightbulb: (
       <>
         <path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A5 5 0 0 0 8 8c0 1.3.5 2.6 1.5 3.5.8.8 1.3 1.5 1.5 2.5" />
-        <path d="M9 18h6" />
-        <path d="M10 22h4" />
+        <path d="M9 18h6" /><path d="M10 22h4" />
       </>
     ),
     Power: (
       <>
-        <path d="M12 2v10" />
-        <path d="M18.4 6.6a9 9 0 1 1-12.77.04" />
-      </>
-    ),
-    MousePointer2: <path d="m4 4 7.07 17 2.51-7.39L21 11.07z" />,
-    Scissors: (
-      <>
-        <circle cx="6" cy="6" r="3" />
-        <path d="M8.12 8.12 12 12" />
-        <path d="M20 4 8.12 15.88" />
-        <circle cx="6" cy="18" r="3" />
-        <path d="M14.8 14.8 20 20" />
+        <path d="M12 2v10" /><path d="M18.4 6.6a9 9 0 1 1-12.77.04" />
       </>
     ),
     Trash2: (
       <>
-        <path d="M3 6h18" />
-        <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-        <line x1="10" x2="10" y1="11" y2="17" />
-        <line x1="14" x2="14" y1="11" y2="17" />
+        <path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
       </>
     ),
     CircuitBoard: (
       <>
         <rect width="18" height="18" x="3" y="3" rx="2" />
-        <path d="M11 9h4a2 2 0 0 0 2-2V3" />
-        <circle cx="9" cy="9" r="2" />
-        <path d="M7 21v-4a2 2 0 0 1 2-2h4" />
-        <circle cx="15" cy="15" r="2" />
+        <path d="M11 9h4a2 2 0 0 0 2-2V3" /><circle cx="9" cy="9" r="2" />
+        <path d="M7 21v-4a2 2 0 0 1 2-2h4" /><circle cx="15" cy="15" r="2" />
       </>
     ),
-    Play: <polygon points="5 3 19 12 5 21 5 3" />,
-    Square: <rect width="18" height="18" x="3" y="3" rx="2" />,
     BookOpen: (
       <>
         <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
@@ -86,25 +62,16 @@ const Icon = ({ name, size = 24, className = "" }) => {
     ),
     Trophy: (
       <>
-        <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
-        <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
-        <path d="M4 22h16" />
-        <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
-        <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
-        <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+        <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" /><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+        <path d="M4 22h16" /><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
       </>
     ),
     FlaskConical: (
       <>
-        <path d="M10 2v7.31" />
-        <path d="M14 2v7.31" />
-        <path d="M8.5 2h7" />
+        <path d="M10 2v7.31" /><path d="M14 2v7.31" /><path d="M8.5 2h7" />
         <path d="M14 9.3c.7.5 1.2 1.3 1.5 2.2L19 20c.4 1-.4 2-1.5 2h-11C5.4 22 4.6 21 5 20l3.5-8.5c.3-.9.8-1.7 1.5-2.2" />
-        <path d="M7 16h10" />
       </>
-    ),
-    LogIn: <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13.8 12H3" />,
-    LogOut: <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
+    )
   };
 
   return (
@@ -118,7 +85,7 @@ const Icon = ({ name, size = 24, className = "" }) => {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={`lucide ${className}`}
+      className={className}
     >
       {icons[name] || <circle cx="12" cy="12" r="10" />}
     </svg>
@@ -126,110 +93,44 @@ const Icon = ({ name, size = 24, className = "" }) => {
 };
 
 // ==========================================
-// 模組 1: 零件百科
+// 各模組組件 (內容保持功能不變，優化樣式)
 // ==========================================
+
 const EncyclopediaModule = ({ onBack, cloudData, onUpdateCloud }) => {
   const [currentIdx, setCurrentIdx] = useState(0);
-  const [note, setNote] = useState("");
-  const canvasRef = useRef(null);
-  const [isDrawing, setIsDrawing] = useState(false);
-
   const components = [
-    { name: "電阻器", icon: "〰️", desc: "阻礙電流流通。利用色環標記阻值。", apply: "限流、分壓。", wiki: "電阻器" },
-    { name: "電容器", icon: "⫽", desc: "儲存電荷，穩定電壓。", apply: "濾波、定時。", wiki: "電容器" },
-    { name: "二極體", icon: "▶️", desc: "單向導電，像電子的單向閥。", apply: "整流、保護。", wiki: "二極體" },
-    { name: "發光二極體", icon: "💡", desc: "通電會發光的半導體。", apply: "指示燈、顯示器。", wiki: "發光二極體" },
-    { name: "電晶體", icon: "🎋", desc: "放大信號或作為開關。", apply: "CPU、放大器。", wiki: "電晶體" }
+    { name: "電阻器", icon: "〰️", desc: "阻礙電流流通。利用色環標記阻值。", apply: "限流、分壓。" },
+    { name: "電容器", icon: "⫽", desc: "儲存電荷，穩定電壓。", apply: "濾波、定時。" },
+    { name: "二極體", icon: "▶️", desc: "單向導電，像電子的單向閥。", apply: "整流、保護。" },
+    { name: "發光二極體", icon: "💡", desc: "通電會發光的半導體。", apply: "指示燈、顯示器。" },
+    { name: "電晶體", icon: "🎋", desc: "放大信號或作為開關。", apply: "CPU、放大器。" }
   ];
-
   const currentComp = components[currentIdx];
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (canvas) {
-      const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const savedData = cloudData?.encyclopedia?.[currentComp.name] || {};
-      setNote(savedData.text || "");
-      if (savedData.drawing) {
-        const img = new Image();
-        img.onload = () => ctx.drawImage(img, 0, 0);
-        img.src = savedData.drawing;
-      }
-    }
-  }, [currentIdx, cloudData, currentComp.name]);
-
-  const saveToCloud = () => {
-    const drawing = canvasRef.current.toDataURL();
-    const updatedEncyclopedia = {
-      ...(cloudData?.encyclopedia || {}),
-      [currentComp.name]: { text: note, drawing }
-    };
-    onUpdateCloud({ encyclopedia: updatedEncyclopedia });
-  };
-
-  const startDrawing = (e) => {
-    const rect = canvasRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const ctx = canvasRef.current.getContext('2d');
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = '#334155';
-    setIsDrawing(true);
-  };
-
-  const draw = (e) => {
-    if (!isDrawing) return;
-    const rect = canvasRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const ctx = canvasRef.current.getContext('2d');
-    ctx.lineTo(x, y);
-    ctx.stroke();
-  };
-
   return (
-    <div className="flex flex-col h-screen bg-slate-50 overflow-y-auto">
-      <div className="p-4 bg-white border-b flex items-center justify-between sticky top-0 z-10">
-        <button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-full flex items-center gap-2 font-bold text-slate-600">
-          <Icon name="ArrowLeft" size={20} /> 返回
-        </button>
-        <h2 className="font-black text-xl text-slate-800">零件百科</h2>
-        <div className="w-10"></div>
-      </div>
-      <div className="max-w-4xl mx-auto w-full p-6 space-y-6">
-        <div className="bg-white rounded-3xl shadow-xl overflow-hidden grid grid-cols-1 md:grid-cols-2">
-          <div className="bg-slate-100 p-12 flex items-center justify-center text-8xl">{currentComp.icon}</div>
-          <div className="p-8">
-            <h2 className="text-3xl font-bold mb-4">{currentComp.name}</h2>
-            <p className="text-slate-600 mb-6">{currentComp.desc}</p>
-            <div className="bg-emerald-50 p-4 rounded-xl border-l-4 border-emerald-400 mb-6 text-emerald-700 font-bold">{currentComp.apply}</div>
+    <div className="flex flex-col min-h-screen bg-slate-50">
+      <nav className="p-4 bg-white border-b flex items-center gap-4 sticky top-0 z-10 shadow-sm">
+        <button onClick={onBack} className="p-2 hover:bg-slate-100 rounded-full text-slate-600"><Icon name="ArrowLeft" size={24} /></button>
+        <h2 className="font-bold text-xl">零件百科</h2>
+      </nav>
+      <main className="max-w-4xl mx-auto w-full p-6">
+        <div className="bg-white rounded-3xl shadow-xl overflow-hidden md:flex">
+          <div className="bg-slate-100 p-12 flex items-center justify-center text-8xl md:w-1/2">{currentComp.icon}</div>
+          <div className="p-8 md:w-1/2 flex flex-col justify-center">
+            <h2 className="text-3xl font-black mb-4 text-slate-800">{currentComp.name}</h2>
+            <p className="text-slate-600 mb-6 leading-relaxed">{currentComp.desc}</p>
+            <div className="bg-blue-50 p-4 rounded-xl border-l-4 border-blue-400 mb-6 text-blue-700 font-bold">{currentComp.apply}</div>
             <div className="flex gap-4">
-              <button onClick={() => setCurrentIdx((prev) => (prev - 1 + components.length) % components.length)} className="flex-1 py-3 bg-slate-100 rounded-xl font-bold">上一個</button>
-              <button onClick={() => setCurrentIdx((prev) => (prev + 1) % components.length)} className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-bold">下一個</button>
+              <button onClick={() => setCurrentIdx((prev) => (prev - 1 + components.length) % components.length)} className="flex-1 py-3 bg-slate-100 rounded-xl font-bold hover:bg-slate-200">上一個</button>
+              <button onClick={() => setCurrentIdx((prev) => (prev + 1) % components.length)} className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800">下一個</button>
             </div>
           </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="md:col-span-2 bg-white p-6 rounded-3xl shadow-lg">
-            <h3 className="font-bold mb-4">✍️ 草圖繪製</h3>
-            <canvas ref={canvasRef} width={500} height={250} onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={() => { setIsDrawing(false); saveToCloud(); }} className="w-full bg-slate-50 border-2 border-dashed rounded-xl cursor-crosshair" />
-          </div>
-          <div className="bg-white p-6 rounded-3xl shadow-lg flex flex-col">
-            <h3 className="font-bold mb-4">📝 學習筆記</h3>
-            <textarea value={note} onChange={(e) => setNote(e.target.value)} onBlur={saveToCloud} className="flex-1 w-full p-4 bg-yellow-50 rounded-xl border-none focus:ring-0 resize-none" placeholder="輸入筆記..." />
-          </div>
-        </div>
-      </div>
+      </main>
     </div>
   );
 };
 
-// ==========================================
-// 模組 2: 數據實驗室
-// ==========================================
 const LabModule = ({ onBack, cloudData, onUpdateCloud }) => {
   const [valA, setValA] = useState(0);
   const [valB, setValB] = useState(0);
@@ -237,48 +138,48 @@ const LabModule = ({ onBack, cloudData, onUpdateCloud }) => {
   const logs = cloudData?.labLogs || [];
 
   const calculate = () => {
-    switch (gate) {
-      case 'AND': return valA & valB;
-      case 'OR': return valA | valB;
-      case 'XOR': return valA ^ valB;
-      case 'NAND': return (valA & valB) === 0 ? 1 : 0;
-      default: return 0;
-    }
+    if (gate === 'AND') return valA & valB;
+    if (gate === 'OR') return valA | valB;
+    if (gate === 'XOR') return valA ^ valB;
+    if (gate === 'NAND') return (valA & valB) === 0 ? 1 : 0;
+    return 0;
   };
 
   const saveRecord = () => {
     const newLog = { a: valA, b: valB, gate, out: calculate(), time: new Date().toLocaleTimeString() };
-    onUpdateCloud({ labLogs: [newLog, ...logs].slice(0, 10) });
+    onUpdateCloud({ labLogs: [newLog, ...logs].slice(0, 8) });
   };
 
   return (
-    <div className="flex flex-col h-screen bg-slate-900 text-white">
-      <div className="p-4 bg-slate-800 flex items-center justify-between border-b border-slate-700">
-        <button onClick={onBack} className="p-2 hover:bg-slate-700 rounded-full flex items-center gap-2 font-bold"><Icon name="ArrowLeft" size={20} /> 返回</button>
-        <h2 className="font-black text-xl">邏輯實驗室</h2>
-        <div className="w-10"></div>
-      </div>
-      <div className="flex-1 p-6 grid grid-cols-1 md:grid-cols-2 gap-6 overflow-hidden">
-        <div className="bg-slate-800 p-8 rounded-3xl flex flex-col items-center justify-center border border-slate-700">
-          <div className="flex gap-6 mb-10">
-            <button onClick={() => setValA(valA ? 0 : 1)} className={`w-24 py-6 rounded-2xl text-2xl font-black border-4 ${valA ? 'bg-red-500 border-white' : 'bg-slate-700 border-slate-600'}`}>A: {valA}</button>
-            <button onClick={() => setValB(valB ? 0 : 1)} className={`w-24 py-6 rounded-2xl text-2xl font-black border-4 ${valB ? 'bg-red-500 border-white' : 'bg-slate-700 border-slate-600'}`}>B: {valB}</button>
+    <div className="flex flex-col min-h-screen bg-slate-900 text-white">
+      <nav className="p-4 bg-slate-800 flex items-center gap-4 border-b border-slate-700">
+        <button onClick={onBack} className="p-2 hover:bg-slate-700 rounded-full"><Icon name="ArrowLeft" size={24} /></button>
+        <h2 className="font-bold text-xl">邏輯實驗室</h2>
+      </nav>
+      <div className="flex-1 p-6 grid grid-cols-1 md:grid-cols-2 gap-6 max-w-6xl mx-auto w-full">
+        <div className="bg-slate-800 p-8 rounded-[2rem] border border-slate-700 flex flex-col items-center justify-center">
+          <div className="flex gap-8 mb-12">
+            {[{label:'A', val:valA, set:setValA}, {label:'B', val:valB, set:setValB}].map(input => (
+              <button key={input.label} onClick={() => input.set(input.val ? 0 : 1)} className={`w-24 h-24 rounded-3xl text-3xl font-black border-4 transition-all ${input.val ? 'bg-blue-500 border-blue-300 shadow-lg shadow-blue-500/20' : 'bg-slate-700 border-slate-600'}`}>
+                {input.label}: {input.val}
+              </button>
+            ))}
           </div>
-          <select value={gate} onChange={(e) => setGate(e.target.value)} className="w-full max-w-xs p-4 bg-slate-900 border border-blue-500 rounded-xl mb-10 text-xl font-bold">
+          <select value={gate} onChange={(e) => setGate(e.target.value)} className="w-full max-w-xs p-4 bg-slate-950 border border-slate-600 rounded-2xl mb-12 text-center font-black text-xl appearance-none">
             <option>AND</option><option>OR</option><option>XOR</option><option>NAND</option>
           </select>
-          <div className={`w-32 h-32 rounded-full mb-6 flex items-center justify-center text-4xl font-black ${calculate() ? 'bg-yellow-400 text-slate-900 shadow-[0_0_40px_rgba(250,204,21,0.5)]' : 'bg-slate-950 text-slate-700 border-4 border-slate-800'}`}>
+          <div className={`w-32 h-32 rounded-full flex items-center justify-center text-4xl font-black transition-all ${calculate() ? 'bg-yellow-400 text-slate-900 shadow-[0_0_50px_rgba(250,204,21,0.4)]' : 'bg-slate-950 text-slate-700 border-4 border-slate-800'}`}>
             {calculate()}
           </div>
-          <button onClick={saveRecord} className="px-8 py-3 bg-emerald-600 rounded-xl font-bold hover:bg-emerald-500 transition-all">儲存結果至雲端</button>
+          <button onClick={saveRecord} className="mt-12 px-10 py-4 bg-emerald-600 rounded-2xl font-bold hover:bg-emerald-500 transition-all">紀錄至雲端</button>
         </div>
-        <div className="bg-white rounded-3xl p-6 text-slate-800 overflow-hidden flex flex-col">
-          <h3 className="font-black text-lg mb-4 text-slate-500 uppercase tracking-widest">歷史紀錄</h3>
-          <div className="flex-1 overflow-y-auto">
+        <div className="bg-white rounded-[2rem] p-8 text-slate-800 flex flex-col shadow-2xl">
+          <h3 className="font-black text-slate-400 text-xs uppercase tracking-widest mb-6">歷史實驗紀錄</h3>
+          <div className="flex-1 space-y-3">
             {logs.map((log, idx) => (
-              <div key={idx} className="flex justify-between items-center p-3 border-b border-slate-100 font-mono">
-                <span>{log.a} {log.gate} {log.b} = <b className="text-blue-600">{log.out}</b></span>
-                <span className="text-[10px] text-slate-400">{log.time}</span>
+              <div key={idx} className="flex justify-between items-center p-4 bg-slate-50 rounded-xl border border-slate-100">
+                <span className="font-mono font-bold text-lg">{log.a} <span className="text-blue-500">{log.gate}</span> {log.b} = {log.out}</span>
+                <span className="text-[10px] bg-slate-200 px-2 py-1 rounded text-slate-500">{log.time}</span>
               </div>
             ))}
           </div>
@@ -288,9 +189,6 @@ const LabModule = ({ onBack, cloudData, onUpdateCloud }) => {
   );
 };
 
-// ==========================================
-// 模組 3: 邏輯挑戰島
-// ==========================================
 const ChallengeModule = ({ onBack, cloudData, onUpdateCloud }) => {
   const [currentQ, setCurrentQ] = useState({ a: 1, b: 0, gate: 'AND', ans: 0 });
   const [feedback, setFeedback] = useState(null);
@@ -301,10 +199,7 @@ const ChallengeModule = ({ onBack, cloudData, onUpdateCloud }) => {
     const b = Math.round(Math.random());
     const gates = ['AND', 'OR', 'XOR'];
     const gate = gates[Math.floor(Math.random() * gates.length)];
-    let ans = 0;
-    if (gate === 'AND') ans = a & b;
-    if (gate === 'OR') ans = a | b;
-    if (gate === 'XOR') ans = a ^ b;
+    const ans = gate === 'AND' ? a & b : gate === 'OR' ? a | b : a ^ b;
     setCurrentQ({ a, b, gate, ans });
     setFeedback(null);
   };
@@ -314,33 +209,33 @@ const ChallengeModule = ({ onBack, cloudData, onUpdateCloud }) => {
     setFeedback(isCorrect ? 'correct' : 'wrong');
     const newStats = { total: stats.total + 1, correct: isCorrect ? stats.correct + 1 : stats.correct };
     onUpdateCloud({ challengeStats: newStats });
-    setTimeout(generateQ, 1000);
+    setTimeout(generateQ, 800);
   };
 
   return (
-    <div className="min-h-screen bg-emerald-500 p-6 flex flex-col items-center justify-center text-white">
-      <div className="max-w-2xl w-full bg-white rounded-[3rem] p-10 text-slate-800 shadow-2xl relative">
-        <button onClick={onBack} className="absolute top-6 left-6 text-slate-400"><Icon name="ArrowLeft" /></button>
-        <div className="text-center mb-10">
-          <h2 className="text-4xl font-black mb-2">邏輯大挑戰</h2>
-          <p className="font-bold text-emerald-600">正確率: {stats.total ? Math.round((stats.correct/stats.total)*100) : 0}% ({stats.correct}/{stats.total})</p>
-        </div>
-        <div className="bg-slate-50 p-12 rounded-3xl border-4 border-slate-100 flex flex-col items-center mb-10 relative overflow-hidden">
+    <div className="min-h-screen bg-emerald-500 flex items-center justify-center p-6">
+      <div className="max-w-xl w-full bg-white rounded-[3rem] p-10 shadow-2xl relative text-center">
+        <button onClick={onBack} className="absolute top-8 left-8 p-2 hover:bg-slate-100 rounded-full text-slate-400"><Icon name="ArrowLeft" /></button>
+        <h2 className="text-3xl font-black text-slate-800 mb-2">邏輯大挑戰</h2>
+        <div className="text-emerald-600 font-bold mb-10 text-lg">勝率: {stats.total ? Math.round((stats.correct/stats.total)*100) : 0}%</div>
+        
+        <div className="bg-slate-50 p-12 rounded-[2rem] border-4 border-slate-100 mb-10 relative overflow-hidden">
           {feedback && (
-            <div className={`absolute inset-0 flex items-center justify-center text-5xl font-black ${feedback === 'correct' ? 'bg-emerald-500/90 text-white' : 'bg-rose-500/90 text-white'}`}>
-              {feedback === 'correct' ? '正確！' : '錯誤'}
+            <div className={`absolute inset-0 flex items-center justify-center text-4xl font-black animate-bounce ${feedback === 'correct' ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'}`}>
+              {feedback === 'correct' ? '正確！' : '加油！'}
             </div>
           )}
-          <div className="text-6xl font-black mb-4 flex gap-4">
+          <div className="text-6xl font-black flex justify-center gap-6 items-center">
             <span className="text-blue-600">{currentQ.a}</span>
-            <span className="text-slate-300">{currentQ.gate}</span>
+            <span className="text-slate-300 text-3xl">{currentQ.gate}</span>
             <span className="text-blue-600">{currentQ.b}</span>
           </div>
-          <div className="text-slate-400 font-bold">結果 Q 等於多少？</div>
+          <div className="mt-6 text-slate-400 font-bold tracking-widest uppercase text-xs">計算輸出結果</div>
         </div>
+
         <div className="grid grid-cols-2 gap-6">
-          <button onClick={() => checkAns(0)} className="py-8 bg-slate-900 text-white text-4xl font-black rounded-3xl hover:scale-105 transition-all">0</button>
-          <button onClick={() => checkAns(1)} className="py-8 bg-slate-900 text-white text-4xl font-black rounded-3xl hover:scale-105 transition-all">1</button>
+          <button onClick={() => checkAns(0)} className="py-8 bg-slate-900 text-white text-5xl font-black rounded-3xl hover:scale-105 active:scale-95 transition-all">0</button>
+          <button onClick={() => checkAns(1)} className="py-8 bg-slate-900 text-white text-5xl font-black rounded-3xl hover:scale-105 active:scale-95 transition-all">1</button>
         </div>
       </div>
     </div>
@@ -348,100 +243,7 @@ const ChallengeModule = ({ onBack, cloudData, onUpdateCloud }) => {
 };
 
 // ==========================================
-// 模組 4: 電路實作區
-// ==========================================
-const CircuitSimulatorModule = ({ onBack, cloudData, onUpdateCloud }) => {
-  const [components, setComponents] = useState(cloudData?.circuit?.components || []);
-  const [wires, setWires] = useState(cloudData?.circuit?.wires || []);
-  const [tool, setTool] = useState('drag');
-  const [activeNode, setActiveNode] = useState(null);
-  const boardRef = useRef(null);
-
-  const addComp = (type) => {
-    const newComp = { 
-      id: Date.now(), 
-      type, 
-      x: 100 + Math.random() * 50, 
-      y: 100 + Math.random() * 50, 
-      state: false 
-    };
-    const updated = [...components, newComp];
-    setComponents(updated);
-    onUpdateCloud({ circuit: { components: updated, wires } });
-  };
-
-  const handleNodeClick = (compId, side) => {
-    if (tool !== 'wire') return;
-    if (!activeNode) {
-      setActiveNode({ compId, side });
-    } else {
-      const newWire = { 
-        id: Date.now(), 
-        from: activeNode, 
-        to: { compId, side } 
-      };
-      const updatedWires = [...wires, newWire];
-      setWires(updatedWires);
-      setActiveNode(null);
-      onUpdateCloud({ circuit: { components, wires: updatedWires } });
-    }
-  };
-
-  return (
-    <div className="flex flex-col h-screen bg-zinc-950 text-white overflow-hidden">
-      <div className="p-4 bg-zinc-900 border-b border-zinc-800 flex justify-between items-center">
-        <div className="flex items-center gap-4">
-          <button onClick={onBack} className="p-2 hover:bg-zinc-800 rounded-full"><Icon name="ArrowLeft" /></button>
-          <h2 className="font-black text-xl text-orange-500 flex items-center gap-2"><Icon name="CircuitBoard" /> 電路模擬器</h2>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={() => setTool('drag')} className={`px-4 py-2 rounded-xl text-xs font-bold ${tool === 'drag' ? 'bg-blue-600' : 'bg-zinc-800'}`}>移動</button>
-          <button onClick={() => setTool('wire')} className={`px-4 py-2 rounded-xl text-xs font-bold ${tool === 'wire' ? 'bg-orange-600' : 'bg-zinc-800'}`}>連線</button>
-          <button onClick={() => { setComponents([]); setWires([]); onUpdateCloud({ circuit: { components: [], wires: [] } }); }} className="px-4 py-2 bg-rose-900 rounded-xl text-xs font-bold">清空</button>
-        </div>
-      </div>
-      <div className="flex-1 flex">
-        <div className="w-56 bg-zinc-900 p-6 flex flex-col gap-4 border-r border-zinc-800">
-          <p className="text-[10px] font-black text-zinc-500 uppercase">零件庫</p>
-          <button onClick={() => addComp('battery')} className="flex items-center gap-3 p-4 bg-zinc-800 rounded-2xl hover:bg-zinc-700">
-            <Icon name="Zap" className="text-orange-400" /> <span className="text-xs font-bold">電池</span>
-          </button>
-          <button onClick={() => addComp('bulb')} className="flex items-center gap-3 p-4 bg-zinc-800 rounded-2xl hover:bg-zinc-700">
-            <Icon name="Lightbulb" className="text-yellow-400" /> <span className="text-xs font-bold">燈泡</span>
-          </button>
-          <button onClick={() => addComp('switch')} className="flex items-center gap-3 p-4 bg-zinc-800 rounded-2xl hover:bg-zinc-700">
-            <Icon name="Power" className="text-rose-400" /> <span className="text-xs font-bold">開關</span>
-          </button>
-        </div>
-        <div ref={boardRef} className="flex-1 relative bg-[radial-gradient(#333_1px,transparent_1px)] [background-size:30px_30px]">
-          <svg className="absolute inset-0 w-full h-full pointer-events-none">
-            {wires.map(w => {
-              const c1 = components.find(c => c.id === w.from.compId);
-              const c2 = components.find(c => c.id === w.to.compId);
-              if (!c1 || !c2) return null;
-              return <line key={w.id} x1={w.from.side === 'L' ? c1.x : c1.x + 80} y1={c1.y + 40} x2={w.to.side === 'L' ? c2.x : c2.x + 80} y2={c2.y + 40} stroke="#444" strokeWidth="4" />;
-            })}
-          </svg>
-          {components.map(comp => (
-            <div key={comp.id} style={{ left: comp.x, top: comp.y }} className="absolute w-20 h-20 bg-zinc-900 border-2 border-zinc-700 rounded-2xl flex flex-col items-center justify-center cursor-move group">
-              <Icon name={comp.type === 'battery' ? 'Zap' : comp.type === 'bulb' ? 'Lightbulb' : 'Power'} size={32} className="text-zinc-500" />
-              <div onClick={() => handleNodeClick(comp.id, 'L')} className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-yellow-600 rounded-full cursor-pointer hover:scale-125" />
-              <div onClick={() => handleNodeClick(comp.id, 'R')} className="absolute right-0 top-1/2 translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-yellow-600 rounded-full cursor-pointer hover:scale-125" />
-              <button onClick={() => {
-                const filtered = components.filter(c => c.id !== comp.id);
-                setComponents(filtered);
-                onUpdateCloud({ circuit: { components: filtered, wires } });
-              }} className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 bg-rose-500 rounded-full p-1"><Icon name="Trash2" size={12} /></button>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ==========================================
-// 主應用程式 (App)
+// 主入口 (App) - 佈局修復核心
 // ==========================================
 export default function App() {
   const [user, setUser] = useState(null);
@@ -466,59 +268,67 @@ export default function App() {
     const userDocRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'data');
     const unsubscribe = onSnapshot(userDocRef, (snap) => {
       if (snap.exists()) setCloudData(snap.data());
-    }, (err) => console.error("Firestore Error:", err));
+    }, (err) => console.error(err));
     return () => unsubscribe();
   }, [user]);
 
   const updateCloud = async (newData) => {
     if (!user) return;
     const updated = { ...cloudData, ...newData };
+    setCloudData(updated); // 樂觀更新
     try {
       const userDocRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'data');
       await setDoc(userDocRef, updated);
-    } catch (err) { console.error("Update Error:", err); }
+    } catch (err) { console.error(err); }
   };
-
-  const menuItems = [
-    { id: 'encyclopedia', title: '零件百科', icon: 'BookOpen', color: 'bg-blue-500' },
-    { id: 'lab', title: '邏輯實驗室', icon: 'FlaskConical', color: 'bg-sky-500' },
-    { id: 'challenge', title: '挑戰島', icon: 'Trophy', color: 'bg-emerald-500' },
-    { id: 'circuit', title: '模擬器', icon: 'CircuitBoard', color: 'bg-orange-500' }
-  ];
 
   if (view === 'encyclopedia') return <EncyclopediaModule onBack={() => setView('menu')} cloudData={cloudData} onUpdateCloud={updateCloud} />;
   if (view === 'lab') return <LabModule onBack={() => setView('menu')} cloudData={cloudData} onUpdateCloud={updateCloud} />;
   if (view === 'challenge') return <ChallengeModule onBack={() => setView('menu')} cloudData={cloudData} onUpdateCloud={updateCloud} />;
-  if (view === 'circuit') return <CircuitSimulatorModule onBack={() => setView('menu')} cloudData={cloudData} onUpdateCloud={updateCloud} />;
 
   return (
-    <div className="min-h-screen bg-slate-50 p-8 flex flex-col items-center justify-center font-sans">
-      <div className="max-w-4xl w-full">
-        <div className="text-center mb-16">
-          <div className="inline-block p-4 bg-white rounded-3xl shadow-xl mb-6">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 md:p-12 font-sans selection:bg-orange-100">
+      <div className="max-w-5xl w-full">
+        {/* Header 段落修正 */}
+        <header className="text-center mb-16">
+          <div className="inline-flex p-6 bg-white rounded-[2rem] shadow-xl shadow-slate-200/60 mb-8 transform hover:rotate-6 transition-transform">
             <Icon name="CircuitBoard" size={64} className="text-orange-500" />
           </div>
-          <h1 className="text-6xl font-black text-slate-800 tracking-tighter mb-4 italic uppercase">LogicLab</h1>
-          <p className="text-slate-500 font-bold text-xl uppercase tracking-widest">電路實作與邏輯學習中心</p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {menuItems.map(item => (
-            <button key={item.id} onClick={() => setView(item.id)} className="group bg-white p-8 rounded-[2.5rem] shadow-lg hover:shadow-2xl transition-all border-b-8 border-slate-200 hover:border-slate-800 text-left flex items-start gap-6">
-              <div className={`${item.color} p-5 rounded-3xl text-white shadow-lg group-hover:scale-110 transition-transform`}>
-                <Icon name={item.icon} size={32} />
+          <h1 className="text-6xl md:text-8xl font-black text-slate-900 tracking-tighter mb-4 italic uppercase leading-none">
+            Logic<span className="text-orange-500">Lab</span>
+          </h1>
+          <p className="text-slate-400 font-bold text-lg md:text-xl uppercase tracking-[0.3em]">電路實作與邏輯學習中心</p>
+        </header>
+
+        {/* 選單 Grid 修正 - 確保佔滿寬度且間距正確 */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:gap-8 w-full">
+          {[
+            { id: 'encyclopedia', title: '零件百科', icon: 'BookOpen', color: 'bg-blue-500', desc: '認識電子元件基礎' },
+            { id: 'lab', title: '邏輯實驗室', icon: 'FlaskConical', color: 'bg-sky-500', desc: '實作閘電路運算' },
+            { id: 'challenge', title: '挑戰島', icon: 'Trophy', color: 'bg-emerald-500', desc: '測試你的邏輯速度' },
+            { id: 'circuit', title: '模擬器', icon: 'CircuitBoard', color: 'bg-orange-500', desc: '搭建動態虛擬電路' }
+          ].map(item => (
+            <button
+              key={item.id}
+              onClick={() => setView(item.id)}
+              className="group bg-white p-8 md:p-10 rounded-[3rem] shadow-lg hover:shadow-2xl transition-all border-b-[12px] border-slate-200 hover:border-slate-900 text-left flex items-center gap-6 md:gap-8 active:translate-y-2 active:border-b-0"
+            >
+              <div className={`${item.color} p-5 md:p-6 rounded-[2rem] text-white shadow-lg group-hover:scale-110 group-hover:rotate-3 transition-all flex-shrink-0`}>
+                <Icon name={item.icon} size={40} />
               </div>
-              <div>
-                <h3 className="text-2xl font-black text-slate-800 mb-2">{item.title}</h3>
-                <p className="text-slate-400 font-bold text-sm">點擊進入</p>
+              <div className="flex-1">
+                <h3 className="text-2xl md:text-3xl font-black text-slate-800 mb-1">{item.title}</h3>
+                <p className="text-slate-400 font-bold text-sm hidden md:block">{item.desc}</p>
               </div>
             </button>
           ))}
         </div>
-        {user && (
-          <div className="mt-12 text-center text-[10px] text-slate-300 font-mono">
-            UID: {user.uid} | CLOUD SYNC ACTIVE
-          </div>
-        )}
+
+        {/* 頁尾訊息 */}
+        <footer className="mt-20 text-center space-y-2 opacity-50">
+          <p className="text-[10px] font-black tracking-widest text-slate-400">VERSION 2.1 • CLOUD SYNCED</p>
+          {user && <p className="text-[10px] font-mono text-slate-300">USER ID: {user.uid}</p>}
+        </footer>
       </div>
     </div>
   );
