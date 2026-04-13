@@ -1,7 +1,31 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { initializeApp } from 'firebase/app';
+import { 
+  getAuth, 
+  signInWithCustomToken, 
+  signInAnonymously, 
+  onAuthStateChanged, 
+  GoogleAuthProvider, 
+  signInWithPopup, 
+  signOut 
+} from 'firebase/auth';
+import { 
+  getFirestore, 
+  doc, 
+  setDoc, 
+  getDoc, 
+  onSnapshot, 
+  collection 
+} from 'firebase/firestore';
 
-// --- 修正後的 Icon 組件 ---
-// 使用 Lucide 的 SVG 路徑，確保標籤在 React 中正確閉合
+// --- Firebase 配置 ---
+const firebaseConfig = JSON.parse(__firebase_config);
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'logic-lab-default';
+
+// --- 通用組件：Icon ---
 const Icon = ({ name, size = 24, className = "" }) => {
   const icons = {
     ArrowLeft: <path d="m12 19-7-7 7-7M5 12h14" />,
@@ -80,7 +104,9 @@ const Icon = ({ name, size = 24, className = "" }) => {
         <path d="M14 9.3c.7.5 1.2 1.3 1.5 2.2L19 20c.4 1-.4 2-1.5 2h-11C5.4 22 4.6 21 5 20l3.5-8.5c.3-.9.8-1.7 1.5-2.2" />
         <path d="M7 16h10" />
       </>
-    )
+    ),
+    LogIn: <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13.8 12H3" />,
+    LogOut: <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
   };
 
   return (
@@ -102,7 +128,7 @@ const Icon = ({ name, size = 24, className = "" }) => {
 };
 
 // ==========================================
-// 1. 零件百科 (Encyclopedia)
+// 模組 1: 零件百科
 // ==========================================
 const EncyclopediaModule = ({ onBack, cloudData, onUpdateCloud }) => {
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -136,7 +162,7 @@ const EncyclopediaModule = ({ onBack, cloudData, onUpdateCloud }) => {
     }
   }, [currentIdx, cloudData]);
 
-  const saveToLocal = () => {
+  const saveToCloud = () => {
     const drawing = canvasRef.current.toDataURL();
     const updatedEncyclopedia = {
       ...(cloudData?.encyclopedia || {}),
@@ -175,7 +201,9 @@ const EncyclopediaModule = ({ onBack, cloudData, onUpdateCloud }) => {
           <Icon name="ArrowLeft" size={20} /> 返回
         </button>
         <h2 className="font-black text-xl text-slate-800">零件百科 & 筆記區</h2>
-        <div className="text-xs text-slate-400">本地儲存模式</div>
+        <div className="text-xs text-emerald-500 font-bold flex items-center gap-1">
+          <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" /> 雲端同步中
+        </div>
       </div>
       <div className="max-w-6xl mx-auto w-full p-6 space-y-8">
         <div className="bg-white rounded-[2.5rem] shadow-xl overflow-hidden grid grid-cols-1 lg:grid-cols-2">
@@ -208,7 +236,7 @@ const EncyclopediaModule = ({ onBack, cloudData, onUpdateCloud }) => {
               width={700} height={300}
               onMouseDown={startDrawing}
               onMouseMove={draw}
-              onMouseUp={() => { setIsDrawing(false); saveToLocal(); }}
+              onMouseUp={() => { setIsDrawing(false); saveToCloud(); }}
               className="w-full bg-slate-50 border-2 border-dashed rounded-2xl cursor-crosshair"
             />
           </div>
@@ -217,9 +245,9 @@ const EncyclopediaModule = ({ onBack, cloudData, onUpdateCloud }) => {
             <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              onBlur={saveToLocal}
+              onBlur={saveToCloud}
               className="flex-1 w-full p-4 bg-yellow-50 rounded-2xl border-none focus:ring-0 resize-none text-slate-700"
-              placeholder="內容會自動儲存..."
+              placeholder="內容會自動儲存到雲端..."
             />
           </div>
         </div>
@@ -229,7 +257,7 @@ const EncyclopediaModule = ({ onBack, cloudData, onUpdateCloud }) => {
 };
 
 // ==========================================
-// 2. 數據實驗室 (LabModule)
+// 模組 2: 數據實驗室
 // ==========================================
 const LabModule = ({ onBack, cloudData, onUpdateCloud }) => {
   const [valA, setValA] = useState(0);
@@ -260,7 +288,7 @@ const LabModule = ({ onBack, cloudData, onUpdateCloud }) => {
       <div className="p-4 bg-slate-800 flex items-center justify-between">
         <button onClick={onBack} className="p-2 hover:bg-slate-700 rounded-full flex items-center gap-2 font-bold"><Icon name="ArrowLeft" size={20} /> 返回</button>
         <h2 className="font-black text-xl tracking-tighter">LogicLab 實驗室</h2>
-        <div className="w-10"></div>
+        <div className="text-xs text-emerald-400">雲端日誌</div>
       </div>
       <div className="flex-1 p-6 grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-hidden">
         <div className="bg-slate-800 p-8 rounded-[2.5rem] border border-slate-700 flex flex-col items-center shadow-2xl">
@@ -274,10 +302,10 @@ const LabModule = ({ onBack, cloudData, onUpdateCloud }) => {
           </select>
           <div className={`w-24 h-24 rounded-full border-4 mb-6 transition-all duration-500 ${output ? 'bg-yellow-400 shadow-[0_0_50px_rgba(250,204,21,0.6)] border-white' : 'bg-slate-950 border-slate-700'}`} />
           <div className="text-3xl font-black">輸出 OUT: <span className="text-yellow-400">{output}</span></div>
-          <button onClick={saveRecord} className="mt-10 w-full py-4 bg-emerald-600 rounded-xl font-bold hover:bg-emerald-500 shadow-xl transition-all">儲存日誌</button>
+          <button onClick={saveRecord} className="mt-10 w-full py-4 bg-emerald-600 rounded-xl font-bold hover:bg-emerald-500 shadow-xl transition-all">儲存雲端日誌</button>
         </div>
         <div className="lg:col-span-2 bg-white rounded-[2rem] p-6 text-slate-800 flex flex-col overflow-hidden shadow-2xl">
-          <h3 className="font-black text-lg mb-4">歷史數據</h3>
+          <h3 className="font-black text-lg mb-4 text-slate-700">雲端歷史數據</h3>
           <div className="flex-1 overflow-y-auto border rounded-2xl">
             <table className="w-full text-center">
               <thead className="bg-slate-50 sticky top-0 border-b">
@@ -302,7 +330,7 @@ const LabModule = ({ onBack, cloudData, onUpdateCloud }) => {
 };
 
 // ==========================================
-// 3. 邏輯挑戰島 (ChallengeModule)
+// 模組 3: 邏輯挑戰島
 // ==========================================
 const ChallengeModule = ({ onBack, cloudData, onUpdateCloud }) => {
   const [level, setLevel] = useState(null);
@@ -351,7 +379,7 @@ const ChallengeModule = ({ onBack, cloudData, onUpdateCloud }) => {
       <div className="w-full max-w-5xl flex justify-between items-center mb-8">
         <button onClick={() => setLevel(null)} className="bg-white px-6 py-2 rounded-xl shadow border font-bold">返回難度</button>
         <div className="bg-white px-6 py-2 rounded-xl border-2 border-emerald-500 font-black text-emerald-600 shadow-sm">
-          勝率: {stats.total === 0 ? 0 : Math.round(stats.correct / stats.total * 100)}%
+          雲端同步勝率: {stats.total === 0 ? 0 : Math.round(stats.correct / stats.total * 100)}%
         </div>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 w-full max-w-5xl">
@@ -380,7 +408,7 @@ const ChallengeModule = ({ onBack, cloudData, onUpdateCloud }) => {
 };
 
 // ==========================================
-// 4. 電路實作區 (CircuitSimulatorModule)
+// 模組 4: 電路實作區
 // ==========================================
 const CircuitSimulatorModule = ({ onBack }) => {
   const [components, setComponents] = useState([]);
@@ -523,19 +551,79 @@ const CircuitSimulatorModule = ({ onBack }) => {
 };
 
 // ==========================================
-// 主入口 (App)
+// 主進入點 (App)
 // ==========================================
 export default function App() {
   const [view, setView] = useState('menu');
-  const [cloudData, setCloudData] = useState(() => {
-    const saved = localStorage.getItem('logiclab-data');
-    return saved ? JSON.parse(saved) : {};
-  });
+  const [user, setUser] = useState(null);
+  const [cloudData, setCloudData] = useState({});
 
-  const updateCloudData = (newData) => {
+  // 1. 初始化驗證 (RULE 3)
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
+      } catch (err) {
+        console.error("驗證失敗:", err);
+      }
+    };
+    initAuth();
+    const unsubscribe = onAuthStateChanged(auth, setUser);
+    return () => unsubscribe();
+  }, []);
+
+  // 2. 獲取使用者雲端數據 (RULE 1 & 2)
+  useEffect(() => {
+    if (!user) return;
+    const userDocRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'data');
+    const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setCloudData(docSnap.data());
+      } else {
+        // 如果沒有雲端數據，嘗試從本地遷移 (或是設定預設值)
+        const local = localStorage.getItem('logiclab-data');
+        if (local) {
+          const parsed = JSON.parse(local);
+          setDoc(userDocRef, parsed);
+        }
+      }
+    }, (err) => console.error("雲端數據監聽錯誤:", err));
+    return () => unsubscribe();
+  }, [user]);
+
+  const updateCloudData = async (newData) => {
+    if (!user) return;
     const updated = { ...cloudData, ...newData };
-    setCloudData(updated);
-    localStorage.setItem('logiclab-data', JSON.stringify(updated));
+    try {
+      const userDocRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'data');
+      await setDoc(userDocRef, updated);
+      // 同時更新本地備份
+      localStorage.setItem('logiclab-data', JSON.stringify(updated));
+    } catch (err) {
+      console.error("更新雲端失敗:", err);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (err) {
+      console.error("Google 登入失敗:", err);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+      window.location.reload(); // 重新整理以重置為匿名狀態
+    } catch (err) {
+      console.error("登出失敗:", err);
+    }
   };
 
   const menuItems = [
@@ -551,14 +639,42 @@ export default function App() {
   if (view === 'circuit') return <CircuitSimulatorModule onBack={() => setView('menu')} />;
 
   return (
-    <div className="min-h-screen bg-slate-50 p-8 flex flex-col items-center justify-center font-sans">
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-8 font-sans">
       <div className="max-w-4xl w-full">
+        {/* 使用者狀態與登入按鈕 */}
+        <div className="absolute top-8 right-8 flex items-center gap-4">
+          {user && !user.isAnonymous ? (
+            <div className="flex items-center gap-4 bg-white p-2 pr-6 rounded-full shadow-md border border-slate-100">
+              <img src={user.photoURL} alt={user.displayName} className="w-10 h-10 rounded-full border-2 border-emerald-400" />
+              <div>
+                <p className="text-xs font-black text-slate-800">{user.displayName}</p>
+                <button onClick={handleSignOut} className="text-[10px] text-rose-500 font-bold hover:underline flex items-center gap-1">
+                  <Icon name="LogOut" size={10} /> 登出
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button 
+              onClick={handleGoogleSignIn}
+              className="flex items-center gap-3 bg-white px-6 py-3 rounded-2xl shadow-lg border border-slate-200 hover:bg-slate-50 transition-all font-black text-slate-700 text-sm"
+            >
+              <Icon name="LogIn" size={18} className="text-blue-500" />
+              Google 登入同步進度
+            </button>
+          )}
+        </div>
+
         <div className="text-center mb-16">
           <div className="inline-block p-4 bg-white rounded-3xl shadow-xl mb-6">
             <Icon name="CircuitBoard" size={64} className="text-orange-500" />
           </div>
           <h1 className="text-6xl font-black text-slate-800 tracking-tighter mb-4 italic">LogicLab</h1>
           <p className="text-slate-500 font-bold text-xl uppercase tracking-widest">電路實作與邏輯學習中心</p>
+          {user?.isAnonymous && (
+            <div className="mt-4 inline-flex items-center gap-2 bg-amber-50 text-amber-700 px-4 py-1 rounded-full text-xs font-bold border border-amber-200">
+              <div className="w-2 h-2 bg-amber-400 rounded-full" /> 目前為訪客模式，建議登入以保存學習筆記
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -580,7 +696,7 @@ export default function App() {
         </div>
 
         <div className="mt-16 text-center text-slate-400 font-bold text-sm tracking-widest uppercase">
-          &copy; 2024 LogicLab Education Project
+          &copy; 2026 LogicLab Education Project | <span className="text-emerald-500">已啟用雲端儲存</span>
         </div>
       </div>
     </div>
