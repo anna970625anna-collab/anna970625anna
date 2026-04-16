@@ -1,684 +1,706 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { 
-  Cpu, BrainCircuit, Zap, Layout, ChevronLeft, ChevronRight, 
-  Search, BookOpen, RotateCcw, Lightbulb, Trash2, Edit3, 
-  Eye, Save, LogIn, UserPlus, LogOut, ArrowLeft, MousePointer2, 
-  Database, Activity, ShieldAlert
-} from 'lucide-react';
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LogicLab Pro | 專業電路與邏輯學習中心</title>
+    <!-- 核心庫 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- 圖標與字體 -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', 'Noto Sans TC', sans-serif; background-color: #f1f5f9; overflow-x: hidden; }
+        .canvas-bg { background-image: radial-gradient(#cbd5e1 1px, transparent 1px); background-size: 25px 25px; }
+        .glass { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        @keyframes led-glow { 
+            0%, 100% { filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.5)); } 
+            50% { filter: drop-shadow(0 0 20px rgba(255, 215, 0, 0.9)); } 
+        }
+        .led-on { animation: led-glow 1s infinite ease-in-out; color: #fbbf24 !important; }
+        .component-card:hover { transform: translateY(-5px); transition: all 0.3s ease; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
 
-// --- 資料庫定義 ---
-const COMPONENTS_DB = [
-  { id: 'p1', name: "麵包板", desc: "電路實驗中不可或缺的基座，內部有導電銅條，不需焊接即可快速搭建電路。", usage: "用於電路原型設計與測試。" },
-  { id: 'p2', name: "電阻器 (Resistor)", desc: "限制電流流動的元件，根據歐姆定律 (V=IR) 調節電壓與電流。", usage: "分壓、限流、保護 LED。" },
-  { id: 'p3', name: "電容器 (Capacitor)", desc: "儲存電場能量的元件，能平滑電壓波動並濾除高頻雜訊。", usage: "濾波、定時電路、儲能。" },
-  { id: 'p4', name: "二極體 (Diode)", desc: "允許電流單向流動的半導體元件，具有整流作用。", usage: "整流器、反向電壓保護。" },
-  { id: 'p5', name: "電晶體 (Transistor)", desc: "利用微小電流控制較大電流的開關或放大元件。", usage: "開關控制、信號放大。" },
-  { id: 'p6', name: "電位器 (Potentiometer)", desc: "一種三個端點的可變電阻器，通常用於調節電壓或音量。", usage: "類比控制、感測調節。" },
-  { id: 'p7', name: "光敏電阻 (LDR)", desc: "其阻值隨照射光線強度增加而減小的元件。", usage: "光感應燈、曝光表。" },
-  { id: 'p8', name: "熱敏電阻 (Thermistor)", desc: "阻值隨溫度變化而顯著改變的電阻器。", usage: "溫度測量、過熱保護。" },
-  { id: 'p9', name: "按鈕開關 (Push Button)", desc: "手動控制電路斷開或閉合的瞬時開關。", usage: "人機互動、啟動按鈕。" },
-  { id: 'p10', name: "指撥開關 (DIP Switch)", desc: "一組安裝在雙列直插封裝中的微型開關。", usage: "參數設定、地址編碼。" },
-  { id: 'p11', name: "蜂鳴器 (Buzzer)", desc: "將電能轉換為聲音信號的電子發聲器。", usage: "警報提示、操作音回饋。" },
-  { id: 'p12', name: "保險絲 (Fuse)", desc: "當電流過載時會熔斷以保護電路的安全裝置。", usage: "電路過流保護。" },
-  { id: 'p13', name: "壓敏電阻 (Varistor)", desc: "電壓超過門檻時阻值驟降，吸收湧浪電壓。", usage: "突波保護、電源保護。" },
-  { id: 'p14', name: "邏輯閘 IC (Logic Gates)", desc: "執行基本邏輯運算 (AND, OR, NOT) 的積體電路。", usage: "數位運算、電腦邏輯。" },
-  { id: 'p15', name: "555 計時器 (555 Timer IC)", desc: "多用途的定時器與振盪器晶片。", usage: "產生脈衝、定時延遲。" }
-];
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo, useCallback } = React;
 
-const LOGIC_GATES = [
-  { id: 'g1', name: 'AND (及)', func: (a, b) => a && b, info: "兩者皆為 1 時，輸出才為 1。" },
-  { id: 'g2', name: 'OR (或)', func: (a, b) => a || b, info: "任一者為 1 時，輸出即為 1。" },
-  { id: 'g3', name: 'NOT (非)', func: (a) => !a, info: "輸出與輸入相反。" },
-  { id: 'g4', name: 'XOR (互斥或)', func: (a, b) => a !== b, info: "兩者相異時，輸出為 1。" },
-  { id: 'g5', name: 'NAND (與非)', func: (a, b) => !(a && b), info: "AND 運算的相反輸出。" },
-  { id: 'g6', name: 'NOR (或非)', func: (a, b) => !(a || b), info: "OR 運算的相反輸出。" }
-];
+        // --- 核心資料定義 ---
+        const PARTS = [
+            { id: 1, name: "麵包板", en: "Breadboard", desc: "電路實驗的基礎，內部有導電插槽，無需焊接即可連接零件。", usage: "電路原型設計與測試。" },
+            { id: 2, name: "電阻器", en: "Resistor", desc: "限制電流流動的元件，依據歐姆定律調節電壓。", usage: "分壓、限流、保護元件。" },
+            { id: 3, name: "電容器", en: "Capacitor", desc: "儲存電荷的元件，能平滑電壓波動。", usage: "濾波、定時電路、儲能。" },
+            { id: 4, name: "二極體", en: "Diode", desc: "僅允許電流單向流動的半導體元件。", usage: "整流、保護電路、發光(LED)。" },
+            { id: 5, name: "電晶體", en: "Transistor", desc: "半導體元件，可用作開關或放大訊號。", usage: "開關控制、電流放大。" },
+            { id: 6, name: "電位器", en: "Potentiometer", desc: "可手動調節阻值的電阻器。", usage: "音量控制、亮點調節。" },
+            { id: 7, name: "光敏電阻", en: "LDR", desc: "阻值隨照射光線強度增加而減小的元件。", usage: "自動感應燈、曝光計。" },
+            { id: 8, name: "熱敏電阻", en: "Thermistor", desc: "阻值隨溫度變化而顯著改變的電阻器。", usage: "溫度測量、過熱保護。" },
+            { id: 9, name: "按鈕開關", en: "Push Button", desc: "按壓時導通或切斷電路的開關。", usage: "控制觸發、重設按鈕。" },
+            { id: 10, name: "指撥開關", en: "DIP Switch", desc: "一組安裝在封裝中的小型開關。", usage: "設定選單、二進位輸入。" },
+            { id: 11, name: "蜂鳴器", en: "Buzzer", desc: "將電能轉換為聲音信號的電子元件。", usage: "警報系統、按鍵音提示。" },
+            { id: 12, name: "保險絲", en: "Fuse", desc: "當電流過載時熔斷以保護電路的裝置。", usage: "安全防護。" },
+            { id: 13, name: "壓敏電阻", en: "Varistor", desc: "對電壓敏感的非線性過載保護元件。", usage: "突波吸收、防雷保護。" },
+            { id: 14, name: "邏輯閘 IC", en: "Logic Gates", desc: "執行布林運算的數位積體電路。", usage: "電腦核心運算、數位邏輯。" },
+            { id: 15, name: "555 計時器", en: "555 Timer IC", desc: "極為經典的定時與脈衝產生積體電路。", usage: "閃爍燈、定時開關。" }
+        ];
 
-// --- 主要應用 ---
-export default function App() {
-  const [view, setView] = useState('login');
-  const [user, setUser] = useState(null);
+        const GATES = [
+            { name: 'AND', symbol: '&', func: (a, b) => a && b, info: "兩者皆為 1 時，輸出才為 1。" },
+            { name: 'OR', symbol: '≥1', func: (a, b) => a || b, info: "任一者為 1 時，輸出即為 1。" },
+            { name: 'NOT', symbol: '1', func: (a) => !a, info: "輸出與輸入相反。" },
+            { name: 'XOR', symbol: '=1', func: (a, b) => a !== b, info: "兩者相異時，輸出為 1。" },
+            { name: 'NAND', symbol: '&!', func: (a, b) => !(a && b), info: "AND 的反向結果。" },
+            { name: 'NOR', symbol: '≥1!', func: (a, b) => !(a || b), info: "OR 的反向結果。" }
+        ];
 
-  if (view === 'login') return <LoginScreen onLogin={(userData) => { setUser(userData); setView('menu'); }} />;
+        // --- 小組件：圖標 ---
+        const Icon = ({ name, size = 24, className = "" }) => {
+            const iconRef = useRef(null);
+            useEffect(() => {
+                if (window.lucide) window.lucide.createIcons();
+            }, [name]);
+            return <i data-lucide={name} style={{ width: size, height: size }} className={`inline-block ${className}`}></i>;
+        };
 
-  return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 overflow-x-hidden">
-      <nav className="bg-white/90 backdrop-blur-md sticky top-0 z-50 px-6 py-4 border-b flex justify-between items-center shadow-sm">
-        <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setView('menu')}>
-          <div className="bg-blue-600 p-2 rounded-xl text-white group-hover:rotate-12 transition-transform shadow-lg shadow-blue-500/20">
-            <Zap size={24} fill="currentColor" />
-          </div>
-          <span className="text-xl font-black tracking-tighter">LogicLab Pro</span>
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="hidden sm:flex flex-col items-end">
-            <span className="text-xs font-bold text-slate-400 uppercase">使用者</span>
-            <span className="text-sm font-black text-slate-700">{user?.name}</span>
-          </div>
-          <button onClick={() => { setUser(null); setView('login'); }} className="p-2 hover:bg-red-50 rounded-full transition-colors text-slate-400 hover:text-red-500">
-            <LogOut size={20} />
-          </button>
-        </div>
-      </nav>
+        // --- 主要應用程式邏輯 ---
+        const App = () => {
+            const [user, setUser] = useState(null);
+            const [view, setView] = useState('auth'); // auth, menu, parts, challenge, sim, canvas
 
-      <main className="container mx-auto p-4 sm:p-8">
-        {view === 'menu' && <MainMenu setView={setView} />}
-        {view === 'parts' && <PartsEncyclopedia back={() => setView('menu')} />}
-        {view === 'quiz' && <LogicQuiz back={() => setView('menu')} />}
-        {view === 'sim' && <DigitalSimulator back={() => setView('menu')} />}
-        {view === 'canvas' && <CircuitCanvas back={() => setView('menu')} />}
-      </main>
-    </div>
-  );
-}
+            if (!user && view !== 'auth') setView('auth');
 
-// --- 登入介面 ---
-function LoginScreen({ onLogin }) {
-  const [isRegister, setIsRegister] = useState(false);
-  const [formData, setFormData] = useState({ name: '', email: '', password: '' });
-  const [error, setError] = useState('');
+            const handleLogout = () => {
+                setUser(null);
+                setView('auth');
+            };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (isRegister) {
-      localStorage.setItem(`user_${formData.email}`, JSON.stringify(formData));
-      setIsRegister(false);
-      setError('註冊成功，請登入');
-    } else {
-      const stored = localStorage.getItem(`user_${formData.email}`);
-      if (stored && JSON.parse(stored).password === formData.password) {
-        onLogin(JSON.parse(stored));
-      } else {
-        setError('登錄失敗：信箱或密碼錯誤');
-      }
-    }
-  };
-
-  return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
-      <div className="bg-white p-8 sm:p-12 rounded-[3rem] shadow-2xl w-full max-w-md">
-        <div className="text-center mb-10">
-          <div className="bg-blue-100 w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6 text-blue-600 shadow-inner">
-            {isRegister ? <UserPlus size={40} /> : <LogIn size={40} />}
-          </div>
-          <h2 className="text-4xl font-black text-slate-800 tracking-tight">{isRegister ? '加入實驗室' : '歡迎回來'}</h2>
-          <p className="text-slate-400 mt-2 font-medium">開啟你的電子電路探索之旅</p>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {isRegister && (
-            <input required className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none transition-all font-medium" placeholder="ID 名稱" onChange={e => setFormData({...formData, name: e.target.value})} />
-          )}
-          <input required type="email" className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none transition-all font-medium" placeholder="電子信箱" onChange={e => setFormData({...formData, email: e.target.value})} />
-          <input required type="password" className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none transition-all font-medium" placeholder="密碼" onChange={e => setFormData({...formData, password: e.target.value})} />
-          {error && <p className={`text-sm px-2 font-bold ${error.includes('成功') ? 'text-green-500' : 'text-red-500'}`}>{error}</p>}
-          <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-5 rounded-2xl shadow-xl shadow-blue-500/30 transition-all active:scale-95 text-lg">
-            {isRegister ? '立即註冊' : '登入系統'}
-          </button>
-        </form>
-        <button onClick={() => { setIsRegister(!isRegister); setError(''); }} className="w-full mt-8 text-slate-400 hover:text-blue-600 font-bold transition-colors">
-          {isRegister ? '已有帳號？返回登入' : '還沒有帳號？立即創建'}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// --- 主選單 ---
-function MainMenu({ setView }) {
-  const menus = [
-    { id: 'parts', title: '基礎元件百科', icon: Cpu, desc: '掌握 15 種最核心的電子元件基礎與應用。', color: 'bg-blue-500' },
-    { id: 'quiz', title: '邏輯挑戰關卡', icon: BrainCircuit, desc: '闖關式邏輯閘判讀，挑戰你的數位思維。', color: 'bg-indigo-500' },
-    { id: 'sim', title: '數位邏輯模擬', icon: Activity, desc: '即時邏輯閘運算與發光實驗日誌紀錄。', color: 'bg-teal-500' },
-    { id: 'canvas', title: '專業電路畫布', icon: Layout, desc: '真實物理模擬、布線、數學探針與元件燒毀特效。', color: 'bg-amber-500' },
-  ];
-
-  return (
-    <div className="max-w-6xl mx-auto py-12">
-      <div className="mb-20 text-center animate-in fade-in slide-in-from-top-4 duration-700">
-        <h1 className="text-5xl sm:text-7xl font-black text-slate-900 mb-6 leading-tight tracking-tighter">
-          互動式電路<br className="sm:hidden"/><span className="text-blue-600">實作平台</span>
-        </h1>
-        <p className="text-slate-400 text-lg sm:text-xl max-w-2xl mx-auto font-medium">
-          從零開始的電子學。透過直觀的視覺化模擬，理解數位邏輯與物理電路運作。
-        </p>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 px-4">
-        {menus.map((m, idx) => (
-          <div 
-            key={m.id} 
-            onClick={() => setView(m.id)} 
-            className="bg-white p-10 rounded-[3rem] shadow-xl border-4 border-transparent hover:border-blue-500 cursor-pointer transition-all hover:-translate-y-4 group animate-in fade-in slide-in-from-bottom-4"
-            style={{ animationDelay: `${idx * 100}ms` }}
-          >
-            <div className={`${m.color} text-white p-6 rounded-[2rem] inline-block mb-8 shadow-2xl group-hover:rotate-12 transition-transform`}>
-              <m.icon size={40} />
-            </div>
-            <h3 className="text-2xl font-black text-slate-800 mb-3 tracking-tight">{m.title}</h3>
-            <p className="text-slate-400 text-sm leading-relaxed font-medium">{m.desc}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// --- 功能 1：零件百科 ---
-function PartsEncyclopedia({ back }) {
-  const [index, setIndex] = useState(0);
-  const [notes, setNotes] = useState({});
-  const current = COMPONENTS_DB[index];
-
-  const handleNext = useCallback(() => setIndex(i => (i + 1) % COMPONENTS_DB.length), []);
-  const handlePrev = useCallback(() => setIndex(i => (i - 1 + COMPONENTS_DB.length) % COMPONENTS_DB.length), []);
-
-  useEffect(() => {
-    const handleKey = (e) => {
-      if (e.key === 'ArrowRight') handleNext();
-      if (e.key === 'ArrowLeft') handlePrev();
-    };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [handleNext, handlePrev]);
-
-  return (
-    <div className="max-w-5xl mx-auto animate-in fade-in duration-500">
-      <button onClick={back} className="mb-6 flex items-center gap-2 text-slate-400 hover:text-blue-600 font-black transition-colors">
-        <ArrowLeft size={20} /> 返回主選單
-      </button>
-      
-      <div className="bg-white rounded-[3.5rem] shadow-2xl overflow-hidden border border-slate-100">
-        <div className="flex justify-between items-center p-10 border-b bg-slate-50/50">
-          <div className="bg-blue-600 text-white px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest">元件 {index + 1} / 15</div>
-          <div className="flex gap-4">
-            <button onClick={handlePrev} className="bg-white shadow-sm p-4 rounded-full hover:bg-blue-600 hover:text-white transition-all text-slate-400">
-              <ChevronLeft size={24} />
-            </button>
-            <button onClick={handleNext} className="bg-white shadow-sm p-4 rounded-full hover:bg-blue-600 hover:text-white transition-all text-slate-400">
-              <ChevronRight size={24} />
-            </button>
-          </div>
-        </div>
-
-        <div className="p-12 grid md:grid-cols-2 gap-16 items-start">
-          <div className="space-y-10">
-            <div>
-              <h2 className="text-5xl font-black text-slate-900 mb-6 tracking-tighter">{current.name}</h2>
-              <div className="space-y-8">
-                <div>
-                  <label className="text-xs font-black text-blue-500 uppercase tracking-widest block mb-2">元件原理介紹</label>
-                  <p className="text-slate-600 text-lg leading-relaxed font-medium">{current.desc}</p>
-                </div>
-                <div>
-                  <label className="text-xs font-black text-teal-500 uppercase tracking-widest block mb-2">實際應用場景</label>
-                  <p className="text-slate-600 text-lg leading-relaxed font-medium">{current.usage}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-8 bg-blue-50 rounded-[2.5rem] border border-blue-100">
-              <label className="flex items-center gap-2 font-black text-blue-900 mb-4"><Edit3 size={18} /> 我的學習筆記</label>
-              <textarea 
-                className="w-full h-32 p-5 rounded-2xl bg-white border-none outline-none focus:ring-4 ring-blue-500/10 transition-all font-medium text-slate-700" 
-                placeholder="在此記錄你對這個零件的理解..."
-                value={notes[current.id] || ''}
-                onChange={(e) => setNotes({...notes, [current.id]: e.target.value})}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-6 text-center">
-            <div 
-              onClick={() => window.open(`https://www.google.com/search?q=${current.name}&tbm=isch`, '_blank')}
-              className="w-full aspect-square bg-slate-100 rounded-[3rem] flex flex-col items-center justify-center cursor-pointer hover:bg-slate-200 transition-all border-4 border-dashed border-slate-200 overflow-hidden"
-            >
-              <Search size={32} className="text-blue-600 mb-4" />
-              <span className="text-slate-400 font-black">點擊查看 Google 圖片</span>
-            </div>
-            
-            <button 
-              onClick={() => window.open(`https://zh.wikipedia.org/wiki/${current.name}`, '_blank')}
-              className="w-full py-6 bg-slate-900 text-white rounded-[2rem] font-black text-lg hover:bg-blue-600 shadow-xl transition-all flex items-center justify-center gap-3 active:scale-95"
-            >
-              <BookOpen size={22} /> 維基百科詳細定義
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// --- 功能 2：邏輯挑戰 ---
-function LogicQuiz({ back }) {
-  const [difficulty, setDifficulty] = useState(null);
-  const [question, setQuestion] = useState(null);
-  const [stats, setStats] = useState({ total: 0, correct: 0 });
-  const [showHint, setShowHint] = useState(false);
-  const [feedback, setFeedback] = useState(null);
-
-  const generateQuestion = useCallback((diff) => {
-    const gates = LOGIC_GATES;
-    let text = "";
-    let correctValue = 0;
-    const inputs = { A: Math.round(Math.random()), B: Math.round(Math.random()), C: Math.round(Math.random()) };
-
-    if (diff === 'easy') {
-      const g = gates[Math.floor(Math.random() * gates.length)];
-      text = `A ${g.name.split(' ')[0]} B`;
-      correctValue = g.func(inputs.A, inputs.B) ? 1 : 0;
-    } else if (diff === 'medium') {
-      const g1 = gates[Math.floor(Math.random() * 6)];
-      const g2 = gates[Math.floor(Math.random() * 6)];
-      const combo = Math.random() > 0.5 ? 'A' : 'B';
-      text = `(A ${g1.name.split(' ')[0]} B) ${g2.name.split(' ')[0]} ${combo}`;
-      correctValue = g2.func(g1.func(inputs.A, inputs.B), inputs[combo]) ? 1 : 0;
-    } else {
-      const g1 = gates[Math.floor(Math.random() * 6)];
-      const g2 = gates[Math.floor(Math.random() * 6)];
-      text = `(A ${g1.name.split(' ')[0]} B) ${g2.name.split(' ')[0]} C`;
-      correctValue = g2.func(g1.func(inputs.A, inputs.B), inputs.C) ? 1 : 0;
-    }
-
-    setQuestion({ ...inputs, text, correctValue });
-    setShowHint(false);
-    setFeedback(null);
-  }, []);
-
-  const handleAnswer = (ans) => {
-    if (feedback) return;
-    const isCorrect = ans === question.correctValue;
-    setStats(s => ({ total: s.total + 1, correct: s.correct + (isCorrect ? 1 : 0) }));
-    setFeedback({
-      isCorrect,
-      msg: isCorrect ? "太棒了！邏輯分析精準。" : "分析有誤，請再試一次。",
-      detail: `當輸入 A=${question.A}, B=${question.B}${difficulty==='hard'?`, C=${question.C}`:''} 時，最終結果應為 ${question.correctValue}。`
-    });
-  };
-
-  if (!difficulty) {
-    return (
-      <div className="max-w-5xl mx-auto py-12 text-center">
-        <button onClick={back} className="mb-10 flex items-center gap-2 text-slate-400 font-black"><ArrowLeft /> 返回選單</button>
-        <h2 className="text-5xl font-black mb-16 text-slate-800 tracking-tight">選擇挑戰級別</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-10">
-          {[
-            { id: 'easy', name: '簡單', icon: Zap, color: 'hover:border-blue-500' },
-            { id: 'medium', name: '普通', icon: BrainCircuit, color: 'hover:border-indigo-500' },
-            { id: 'hard', name: '困難', icon: Layout, color: 'hover:border-red-500' }
-          ].map(d => (
-            <button key={d.id} onClick={() => { setDifficulty(d.id); generateQuestion(d.id); }} className={`bg-white p-14 rounded-[3.5rem] shadow-xl border-4 border-transparent ${d.color} transition-all group`}>
-              <div className="bg-slate-50 w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-8 group-hover:scale-110 transition-transform text-slate-400 group-hover:text-blue-600">
-                <d.icon size={40} />
-              </div>
-              <h3 className="text-3xl font-black uppercase tracking-wider">{d.name}</h3>
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="max-w-6xl mx-auto space-y-8 animate-in zoom-in-95 duration-300">
-      <div className="flex flex-col sm:flex-row justify-between items-center bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100 gap-6">
-        <button onClick={() => setDifficulty(null)} className="font-black text-slate-400 hover:text-blue-600 flex items-center gap-2 tracking-tight">
-          <ArrowLeft size={20} /> 返回級別
-        </button>
-        <div className="flex gap-12">
-          <div className="text-center"><p className="text-xs text-slate-400 uppercase font-black tracking-widest mb-1">總題數</p><p className="text-3xl font-black text-slate-800">{stats.total}</p></div>
-          <div className="text-center"><p className="text-xs text-slate-400 uppercase font-black tracking-widest mb-1">答對</p><p className="text-3xl font-black text-green-500">{stats.correct}</p></div>
-          <div className="text-center"><p className="text-xs text-slate-400 uppercase font-black tracking-widest mb-1">準確率</p><p className="text-3xl font-black text-blue-600">{stats.total ? Math.round((stats.correct/stats.total)*100) : 0}%</p></div>
-        </div>
-      </div>
-
-      <div className="grid lg:grid-cols-5 gap-8">
-        <div className="lg:col-span-3 bg-white p-14 rounded-[3.5rem] shadow-2xl border border-slate-100 flex flex-col justify-center items-center relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 to-indigo-600"></div>
-          <div className="text-xs font-black text-blue-500 mb-6 tracking-[.4em] uppercase">題目分析</div>
-          <div className="space-y-8 text-center">
-            <div className="flex justify-center gap-6">
-              {['A', 'B', 'C'].map(k => (difficulty !== 'easy' || k !== 'C') && (
-                <div key={k} className="bg-slate-50 px-8 py-4 rounded-[2rem] border-2 border-slate-100">
-                  <span className="text-xs font-black text-slate-400 uppercase block mb-1">{k} 輸入</span>
-                  <span className="text-3xl font-black text-blue-600">{question?.[k]}</span>
-                </div>
-              ))}
-            </div>
-            <div className="p-10 bg-slate-900 text-white rounded-[2.5rem] shadow-2xl font-mono text-3xl tracking-widest leading-relaxed">
-              {question?.text} = ?
-            </div>
-          </div>
-        </div>
-
-        <div className="lg:col-span-2 flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-4 flex-1">
-            {[1, 0].map(val => (
-              <button 
-                key={`ans-${val}`} 
-                onClick={() => handleAnswer(val)} 
-                className={`flex items-center justify-center text-5xl font-black rounded-[3rem] border-4 transition-all shadow-xl active:scale-95 ${feedback ? 'opacity-50 cursor-not-allowed' : 'hover:border-blue-500'} ${val === 1 ? 'bg-amber-50 border-amber-100 text-amber-500' : 'bg-slate-50 border-slate-200 text-slate-400'}`}
-              >
-                {val}
-              </button>
-            ))}
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <button onClick={() => setShowHint(true)} className="py-6 bg-blue-100 text-blue-600 rounded-[2rem] font-black text-lg flex flex-col items-center gap-1 hover:bg-blue-200 transition-colors">
-              <Lightbulb size={24} /> 查看提示
-            </button>
-            <button onClick={() => generateQuestion(difficulty)} className="py-6 bg-slate-100 text-slate-600 rounded-[2rem] font-black text-lg flex flex-col items-center gap-1 hover:bg-slate-200 transition-colors">
-              <RotateCcw size={24} /> 下一題
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {showHint && (
-        <div className="bg-amber-50 border-2 border-amber-200 p-10 rounded-[3rem] animate-in slide-in-from-bottom-6">
-          <h4 className="font-black text-amber-900 text-xl mb-4">💡 邏輯運算提示：</h4>
-          <div className="grid sm:grid-cols-2 gap-4">
-            {LOGIC_GATES.filter(g => question?.text.includes(g.name.split(' ')[0])).map(g => (
-              <div key={`hint-${g.id}`} className="bg-white p-5 rounded-2xl shadow-sm border border-amber-100">
-                <span className="font-black text-amber-600 mr-2">{g.name}:</span>
-                <span className="text-amber-700 font-medium">{g.info}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {feedback && (
-        <div className={`p-10 rounded-[3rem] shadow-2xl text-center transform transition-all ${feedback.isCorrect ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
-          <h3 className="text-3xl font-black mb-3">{feedback.msg}</h3>
-          <p className="text-xl font-bold opacity-90">{feedback.detail}</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// --- 功能 3：數位模擬器 ---
-function DigitalSimulator({ back }) {
-  const [inputs, setInputs] = useState({ A: 0, B: 0 });
-  const [gate, setGate] = useState(LOGIC_GATES[0]);
-  const [logs, setLogs] = useState([]);
-
-  useEffect(() => {
-    const saved = localStorage.getItem('digisim_logs');
-    if (saved) setLogs(JSON.parse(saved));
-  }, []);
-
-  const output = gate.func(inputs.A, inputs.B) ? 1 : 0;
-
-  const saveLog = () => {
-    const newEntry = {
-      id: Date.now(),
-      a: inputs.A,
-      b: inputs.B,
-      gate: gate.name,
-      result: output,
-      time: new Date().toLocaleTimeString('zh-TW', { hour12: false })
-    };
-    const updatedLogs = [newEntry, ...logs].slice(0, 10);
-    setLogs(updatedLogs);
-    localStorage.setItem('digisim_logs', JSON.stringify(updatedLogs));
-  };
-
-  return (
-    <div className="max-w-6xl mx-auto space-y-10">
-      <div className="grid lg:grid-cols-2 gap-10">
-        <div className="bg-white p-12 rounded-[4rem] shadow-2xl border border-slate-100 flex flex-col justify-between">
-          <div>
-            <div className="flex justify-between items-center mb-16">
-              <h2 className="text-4xl font-black tracking-tight text-slate-800">數位邏輯實驗室</h2>
-              <div className={`w-24 h-24 rounded-full flex items-center justify-center transition-all duration-500 shadow-2xl ${output ? 'bg-amber-400 shadow-amber-400/50' : 'bg-slate-800 shadow-slate-900/20'}`}>
-                <Zap size={48} className={output ? 'text-white' : 'text-slate-600'} />
-              </div>
-            </div>
-
-            <div className="space-y-10">
-              <div className="flex gap-8">
-                {['A', 'B'].map(key => (
-                  <button 
-                    key={`btn-${key}`} 
-                    onClick={() => setInputs(i => ({...i, [key]: i[key] ? 0 : 1}))}
-                    className={`flex-1 py-14 rounded-[3rem] text-5xl font-black transition-all border-4 shadow-xl active:scale-95 ${inputs[key] ? 'bg-blue-600 text-white border-blue-400 shadow-blue-500/30' : 'bg-slate-50 text-slate-300 border-slate-100'}`}
-                  >
-                    <span className="text-xs uppercase font-black block mb-2 opacity-50 tracking-widest">輸入 {key}</span>
-                    {inputs[key]}
-                  </button>
-                ))}
-              </div>
-
-              <div>
-                <label className="text-xs font-black text-slate-400 uppercase tracking-[.3em] block mb-4 ml-2">選擇邏輯運算</label>
-                <select 
-                  onChange={(e) => setGate(LOGIC_GATES.find(g => g.name === e.target.value))}
-                  className="w-full p-8 rounded-[2.5rem] bg-slate-50 border-2 border-slate-100 outline-none focus:border-blue-500 font-black text-2xl appearance-none shadow-inner"
-                >
-                  {LOGIC_GATES.map(g => <option key={g.id} value={g.name}>{g.name}</option>)}
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <button onClick={saveLog} className="mt-12 w-full py-8 bg-slate-900 text-white rounded-[2.5rem] font-black text-xl hover:bg-blue-600 shadow-2xl transition-all flex items-center justify-center gap-4 active:scale-95">
-            <Save /> 儲存目前實驗數據
-          </button>
-        </div>
-
-        <div className="bg-white p-12 rounded-[4rem] shadow-2xl border border-slate-100 overflow-hidden">
-          <h3 className="text-3xl font-black mb-10 flex items-center gap-3"><Database className="text-blue-500" /> 歷史實驗日誌</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="text-xs font-black text-slate-400 uppercase tracking-widest border-b-2 border-slate-50">
-                  <th className="pb-6 px-4">時間</th>
-                  <th className="pb-6 px-4">輸入 A, B</th>
-                  <th className="pb-6 px-4">邏輯閘</th>
-                  <th className="pb-6 px-4 text-right">結果</th>
-                </tr>
-              </thead>
-              <tbody>
-                {logs.map((log) => (
-                  <tr key={log.id} className="border-b border-slate-50 group hover:bg-slate-50 transition-colors">
-                    <td className="py-6 px-4 font-mono font-bold text-slate-400">{log.time}</td>
-                    <td className="py-6 px-4 font-black text-slate-700">{log.a}, {log.b}</td>
-                    <td className="py-6 px-4 font-black text-blue-600">{log.gate}</td>
-                    <td className="py-6 px-4 text-right">
-                      <span className={`px-6 py-2 rounded-full text-sm font-black shadow-sm ${log.result ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-400'}`}>
-                        {log.result}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-                {logs.length === 0 && (
-                  <tr><td colSpan="4" className="py-32 text-center text-slate-300 font-black text-xl italic">尚無任何紀錄</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// --- 功能 4：專業電路畫布 ---
-function CircuitCanvas({ back }) {
-  const canvasRef = useRef(null);
-  const [mode, setMode] = useState('drag');
-  const [components, setComponents] = useState([]);
-  const [wires, setWires] = useState([]);
-  const [hovered, setHovered] = useState(null);
-  const [probeInfo, setProbeInfo] = useState(null);
-  const [dragItem, setDragItem] = useState(null);
-  const [wiringFrom, setWiringFrom] = useState(null);
-
-  const COMP_TYPES = [
-    { type: 'BATTERY', name: '電池', icon: Zap, color: 'text-amber-500', baseValue: 9, unit: 'V' },
-    { type: 'RESISTOR', name: '電阻', icon: Edit3, color: 'text-blue-500', baseValue: 1000, unit: 'Ω' },
-    { type: 'LED', name: 'LED 燈', icon: Lightbulb, color: 'text-red-500', limit: 0.02, unit: 'A' },
-    { type: 'SWITCH', name: '開關', icon: MousePointer2, color: 'text-emerald-500', isOpen: true },
-    { type: 'FUSE', name: '保險絲', icon: ShieldAlert, color: 'text-orange-500', limit: 1.0 }
-  ];
-
-  const addComponent = (type) => {
-    const config = COMP_TYPES.find(t => t.type === type);
-    const newComp = {
-      id: `comp-${Date.now()}`,
-      type,
-      x: 200, y: 200,
-      name: config.name,
-      value: config.baseValue || 0,
-      unit: config.unit || '',
-      isOpen: config.isOpen ?? false,
-      status: 'normal'
-    };
-    setComponents([...components, newComp]);
-  };
-
-  const handleMouseDown = (e) => {
-    const rect = canvasRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const clicked = components.find(c => Math.hypot(c.x - x, c.y - y) < 40);
-
-    if (mode === 'delete') {
-      if (clicked) setComponents(components.filter(c => c.id !== clicked.id));
-      return;
-    }
-
-    if (mode === 'edit' && clicked) {
-      const v = prompt(`輸入新的 ${clicked.unit} 數值:`, clicked.value);
-      if (v !== null) setComponents(components.map(c => c.id === clicked.id ? {...c, value: parseFloat(v)} : c));
-      return;
-    }
-
-    if (clicked) {
-      if (mode === 'drag') setDragItem({ id: clicked.id, ox: x - clicked.x, oy: y - clicked.y });
-      if (mode === 'wire') setWiringFrom({ id: clicked.id, x: clicked.x, y: clicked.y });
-      if (clicked.type === 'SWITCH') setComponents(components.map(c => c.id === clicked.id ? {...c, isOpen: !c.isOpen} : c));
-    }
-  };
-
-  const handleMouseMove = (e) => {
-    const rect = canvasRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    if (dragItem) {
-      setComponents(components.map(c => c.id === dragItem.id ? {...c, x: x - dragItem.ox, y: y - dragItem.oy} : c));
-    }
-
-    const near = components.find(c => Math.hypot(c.x - x, c.y - y) < 40);
-    setHovered(near);
-
-    if (mode === 'probe' && near) {
-      const bat = components.find(c => c.type === 'BATTERY')?.value || 0;
-      const res = components.find(c => c.type === 'RESISTOR')?.value || 1;
-      setProbeInfo({ x: e.clientX, y: e.clientY, v: near.type === 'BATTERY' ? bat : (bat * 0.8).toFixed(1), i: (bat/res).toFixed(3) });
-    } else {
-      setProbeInfo(null);
-    }
-  };
-
-  const handleMouseUp = () => {
-    if (wiringFrom && hovered && hovered.id !== wiringFrom.id) {
-      setWires([...wires, { id: `wire-${Date.now()}`, from: wiringFrom.id, to: hovered.id }]);
-    }
-    setDragItem(null);
-    setWiringFrom(null);
-  };
-
-  return (
-    <div className="flex flex-col h-[calc(100vh-140px)] animate-in fade-in duration-500">
-      <div className="flex bg-white border-b p-4 gap-6 items-center overflow-x-auto shadow-sm z-10">
-        <div className="flex bg-slate-100 p-1.5 rounded-2xl shrink-0">
-          {[
-            { id: 'drag', i: MousePointer2, label: '選取' },
-            { id: 'wire', i: Zap, label: '布線' },
-            { id: 'edit', i: Edit3, label: '修改數值' },
-            { id: 'probe', i: Eye, label: '探針' },
-            { id: 'delete', i: Trash2, label: '刪除' }
-          ].map(tool => (
-            <button key={tool.id} onClick={() => setMode(tool.id)} className={`px-5 py-2.5 rounded-xl flex items-center gap-2 font-black text-sm transition-all ${mode === tool.id ? 'bg-white shadow-md text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>
-              <tool.i size={16} /> <span className="hidden sm:inline">{tool.label}</span>
-            </button>
-          ))}
-        </div>
-        <div className="flex gap-3 shrink-0">
-          {COMP_TYPES.map(t => (
-            <button key={t.type} onClick={() => addComponent(t.type)} className="px-5 py-2.5 bg-slate-50 hover:bg-white hover:shadow-lg border border-slate-100 rounded-2xl flex items-center gap-2 font-black text-sm transition-all text-slate-700">
-              <t.icon size={18} className={t.color} /> {t.name}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="flex-1 relative bg-slate-50 overflow-hidden cursor-crosshair">
-        <canvas ref={canvasRef} className="w-full h-full" onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} width={2000} height={2000} />
-        
-        <svg className="absolute inset-0 w-full h-full pointer-events-none">
-          <defs>
-            <pattern id="circuit-grid" width="40" height="40" patternUnits="userSpaceOnUse">
-              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#e2e8f0" strokeWidth="1"/>
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill="url(#circuit-grid)" />
-
-          {wires.map(w => {
-            const f = components.find(c => c.id === w.from);
-            const t = components.find(c => c.id === w.to);
-            if (!f || !t) return null;
-            return <line key={w.id} x1={f.x} y1={f.y} x2={t.x} y2={t.y} stroke="#64748b" strokeWidth="4" strokeLinecap="round" />;
-          })}
-
-          {wiringFrom && hovered && (
-            <line x1={wiringFrom.x} y1={wiringFrom.y} x2={hovered.x} y2={hovered.y} stroke="#3b82f6" strokeWidth="2" strokeDasharray="8,8" />
-          )}
-
-          {components.map(comp => {
-            const config = COMP_TYPES.find(t => t.type === comp.type);
-            const isPowered = components.some(c => c.type === 'BATTERY' && c.value > 0) && components.every(c => c.type !== 'SWITCH' || !c.isOpen);
-            
             return (
-              <g key={comp.id} transform={`translate(${comp.x-30}, ${comp.y-30})`} className="drop-shadow-xl transition-all">
-                <circle cx="30" cy="30" r="35" fill="white" stroke={mode === 'delete' && hovered?.id === comp.id ? '#ef4444' : '#f1f5f9'} strokeWidth="3" />
-                <foreignObject width="60" height="60">
-                  <div className="w-full h-full flex items-center justify-center">
-                    <config.icon 
-                      size={32} 
-                      className={`${config.color} ${comp.type === 'LED' && isPowered ? 'animate-pulse scale-125 drop-shadow-[0_0_10px_rgba(239,68,68,0.8)]' : ''} ${comp.type === 'SWITCH' && !comp.isOpen ? 'text-green-500' : ''}`} 
-                    />
-                  </div>
-                </foreignObject>
-                <text x="30" y="80" textAnchor="middle" className="text-[10px] font-black fill-slate-400 uppercase">
-                  {comp.name} {comp.value > 0 ? `${comp.value}${comp.unit}` : ''}
-                </text>
-              </g>
-            );
-          })}
-        </svg>
+                <div className="min-h-screen flex flex-col">
+                    {/* 導航欄 */}
+                    {user && (
+                        <nav className="glass sticky top-0 z-50 px-6 py-4 border-b flex justify-between items-center shadow-sm">
+                            <div className="flex items-center gap-3 cursor-pointer" onClick={() => setView('menu')}>
+                                <div className="bg-blue-600 p-2 rounded-xl text-white">
+                                    <Icon name="zap" size={20} />
+                                </div>
+                                <span className="text-xl font-black tracking-tighter hidden sm:inline">LogicLab Pro</span>
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <div className="text-right hidden sm:block">
+                                    <p className="text-xs font-bold text-slate-400 uppercase">Current User</p>
+                                    <p className="text-sm font-black text-slate-700">{user.username}</p>
+                                </div>
+                                <button onClick={handleLogout} className="p-2 hover:bg-red-50 text-red-400 rounded-full transition-colors">
+                                    <Icon name="log-out" size={20} />
+                                </button>
+                            </div>
+                        </nav>
+                    )}
 
-        {probeInfo && (
-          <div 
-            className="absolute pointer-events-none bg-slate-900/95 backdrop-blur-md text-white p-5 rounded-[2rem] shadow-2xl z-50"
-            style={{ left: probeInfo.x + 20, top: probeInfo.y - 20 }}
-          >
-            <div className="grid grid-cols-2 gap-6">
-              <div>
-                <p className="text-[10px] font-black text-slate-500 uppercase">電壓</p>
-                <p className="font-mono text-xl font-black">{probeInfo.v} V</p>
-              </div>
-              <div>
-                <p className="text-[10px] font-black text-slate-500 uppercase">電流</p>
-                <p className="font-mono text-xl font-black">{probeInfo.i} A</p>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+                    {/* 內容區域 */}
+                    <div className="flex-1">
+                        {view === 'auth' && <AuthPage onLogin={setUser} onGoToMenu={() => setView('menu')} />}
+                        {view === 'menu' && <MainMenu setView={setView} />}
+                        {view === 'parts' && <PartsModule back={() => setView('menu')} />}
+                        {view === 'challenge' && <ChallengeModule back={() => setView('menu')} />}
+                        {view === 'sim' && <SimulatorModule back={() => setView('menu')} />}
+                        {view === 'canvas' && <CircuitCanvas back={() => setView('menu')} />}
+                    </div>
+                </div>
+            );
+        };
+
+        // --- 1. 登入與註冊頁面 ---
+        const AuthPage = ({ onLogin, onGoToMenu }) => {
+            const [isLogin, setIsLogin] = useState(true);
+            const [form, setForm] = useState({ username: '', email: '', password: '' });
+            const [error, setError] = useState('');
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                if (isLogin) {
+                    // 模擬登入
+                    if (form.email === "test@example.com" && form.password === "123456") {
+                        onLogin({ username: 'Demo User', email: form.email });
+                        onGoToMenu();
+                    } else if (form.username && form.password) {
+                        onLogin({ username: form.username, email: form.email });
+                        onGoToMenu();
+                    } else {
+                        setError('電子郵件或密碼錯誤');
+                    }
+                } else {
+                    // 模擬註冊
+                    onLogin({ username: form.username, email: form.email });
+                    onGoToMenu();
+                }
+            };
+
+            return (
+                <div className="min-h-[90vh] flex items-center justify-center p-6 bg-slate-50">
+                    <div className="max-w-md w-full bg-white p-10 rounded-[2.5rem] shadow-2xl border-4 border-white">
+                        <div className="text-center mb-10">
+                            <div className="inline-block bg-blue-600 p-4 rounded-3xl text-white mb-4 shadow-xl shadow-blue-200">
+                                <Icon name="shield-check" size={40} />
+                            </div>
+                            <h2 className="text-3xl font-black text-slate-900 tracking-tight">{isLogin ? '歡迎回來' : '創建帳號'}</h2>
+                            <p className="text-slate-400 mt-2">{isLogin ? '登入以繼續你的學習旅程' : '加入 LogicLab Pro 學習平台'}</p>
+                        </div>
+                        
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            {!isLogin && (
+                                <input 
+                                    type="text" placeholder="使用者 ID" required
+                                    className="w-full p-4 rounded-2xl bg-slate-50 border-none outline-none focus:ring-4 ring-blue-100 transition-all font-bold"
+                                    value={form.username} onChange={e => setForm({...form, username: e.target.value})}
+                                />
+                            )}
+                            <input 
+                                type="email" placeholder="電子郵件" required
+                                className="w-full p-4 rounded-2xl bg-slate-50 border-none outline-none focus:ring-4 ring-blue-100 transition-all font-bold"
+                                value={form.email} onChange={e => setForm({...form, email: e.target.value})}
+                            />
+                            <input 
+                                type="password" placeholder="密碼" required
+                                className="w-full p-4 rounded-2xl bg-slate-50 border-none outline-none focus:ring-4 ring-blue-100 transition-all font-bold"
+                                value={form.password} onChange={e => setForm({...form, password: e.target.value})}
+                            />
+                            {error && <p className="text-red-500 text-sm font-bold text-center">{error}</p>}
+                            <button type="submit" className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black shadow-lg shadow-blue-500/30 active:scale-95 transition-all">
+                                {isLogin ? '登入' : '註冊帳號'}
+                            </button>
+                        </form>
+                        
+                        <div className="mt-8 text-center">
+                            <button onClick={() => { setIsLogin(!isLogin); setError(''); }} className="text-sm font-bold text-blue-600 hover:underline">
+                                {isLogin ? '還沒有帳號？立即註冊' : '已有帳號？返回登入'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- 主選單 ---
+        const MainMenu = ({ setView }) => {
+            const menus = [
+                { id: 'parts', title: '元件百科', desc: '了解基礎電子元件與運作原理', icon: 'book-open', color: 'bg-indigo-500' },
+                { id: 'challenge', title: '邏輯挑戰', desc: '三種難度的邏輯闖關測驗', icon: 'brain', color: 'bg-rose-500' },
+                { id: 'sim', title: '數位模擬', desc: '即時邏輯運算與實驗日誌記錄', icon: 'activity', color: 'bg-emerald-500' },
+                { id: 'canvas', title: '電路畫布', desc: '自由佈線、數學探針與物理模擬', icon: 'layout', color: 'bg-amber-500' },
+            ];
+
+            return (
+                <div className="max-w-6xl mx-auto py-16 px-6">
+                    <div className="text-center mb-16">
+                        <h1 className="text-5xl font-black text-slate-900 mb-4 tracking-tighter">探索<span className="text-blue-600">電子學</span>的世界</h1>
+                        <p className="text-slate-400 text-lg">從基礎零件到複雜的數位邏輯，一站式掌握所有知識。</p>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                        {menus.map(m => (
+                            <div key={m.id} onClick={() => setView(m.id)} className="bg-white p-10 rounded-[3rem] shadow-xl border-4 border-transparent hover:border-blue-600 transition-all cursor-pointer group hover:-translate-y-4">
+                                <div className={`${m.color} text-white p-6 rounded-[2rem] inline-block mb-8 shadow-xl group-hover:rotate-12 transition-transform`}>
+                                    <Icon name={m.icon} size={40} />
+                                </div>
+                                <h3 className="text-2xl font-black text-slate-800 mb-3">{m.title}</h3>
+                                <p className="text-slate-400 text-sm leading-relaxed">{m.desc}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        // --- 功能 1: 元件百科 ---
+        const PartsModule = ({ back }) => {
+            const [index, setIndex] = useState(0);
+            const [notes, setNotes] = useState({});
+            const item = PARTS[index];
+
+            const next = () => setIndex((index + 1) % PARTS.length);
+            const prev = () => setIndex((index - 1 + PARTS.length) % PARTS.length);
+
+            useEffect(() => {
+                const handleKey = (e) => {
+                    if (e.key === 'ArrowRight') next();
+                    if (e.key === 'ArrowLeft') prev();
+                };
+                window.addEventListener('keydown', handleKey);
+                return () => window.removeEventListener('keydown', handleKey);
+            }, [index]);
+
+            const searchGoogle = () => window.open(`https://www.google.com/search?q=${item.name}+${item.en}&tbm=isch`, '_blank');
+            const searchWiki = () => window.open(`https://zh.wikipedia.org/wiki/${item.name}`, '_blank');
+
+            return (
+                <div className="max-w-4xl mx-auto p-6 animate-in fade-in duration-500">
+                    <button onClick={back} className="mb-8 flex items-center gap-2 text-slate-400 hover:text-blue-600 font-black">
+                        <Icon name="arrow-left" size={20} /> 返回
+                    </button>
+
+                    <div className="bg-white rounded-[3.5rem] shadow-2xl overflow-hidden border-8 border-white">
+                        <div className="grid md:grid-cols-2">
+                            {/* 左側資訊 */}
+                            <div className="p-12 bg-slate-50 flex flex-col justify-between">
+                                <div>
+                                    <span className="inline-block px-4 py-1 bg-blue-100 text-blue-600 rounded-full text-xs font-black mb-4 uppercase tracking-widest">Component {index + 1} / {PARTS.length}</span>
+                                    <h2 className="text-5xl font-black text-slate-900 mb-2">{item.name}</h2>
+                                    <p className="text-slate-400 font-bold mb-8 uppercase tracking-tighter">{item.en}</p>
+                                    <p className="text-slate-600 leading-relaxed mb-6">{item.desc}</p>
+                                    <div className="bg-white p-5 rounded-2xl border border-slate-200">
+                                        <h4 className="text-xs font-black text-slate-400 uppercase mb-2 tracking-widest">常見應用</h4>
+                                        <p className="text-slate-800 font-bold">{item.usage}</p>
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-4 mt-12">
+                                    <button onClick={prev} className="flex-1 py-4 bg-white border border-slate-200 rounded-2xl font-black text-slate-600 hover:bg-slate-100 transition-colors">左 (Prev)</button>
+                                    <button onClick={next} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg shadow-blue-200 hover:bg-blue-700 transition-colors">右 (Next)</button>
+                                </div>
+                            </div>
+
+                            {/* 右側互動 */}
+                            <div className="p-12 flex flex-col gap-8">
+                                <div className="group relative cursor-pointer overflow-hidden rounded-[2.5rem] bg-slate-100 aspect-square flex flex-col items-center justify-center border-4 border-dashed border-slate-200" onClick={searchGoogle}>
+                                    <Icon name="image" size={48} className="text-slate-300 group-hover:scale-110 transition-transform" />
+                                    <p className="text-slate-400 font-bold mt-4">點擊搜尋 Google 圖片</p>
+                                </div>
+                                <button onClick={searchWiki} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black flex items-center justify-center gap-2 active:scale-95 transition-transform">
+                                    <Icon name="search" size={18} /> 查詢維基百科
+                                </button>
+                                
+                                <div className="flex-1">
+                                    <label className="block text-xs font-black text-slate-400 uppercase mb-3 tracking-widest">個人學習筆記</label>
+                                    <textarea 
+                                        className="w-full h-40 p-5 rounded-3xl bg-amber-50 border-none outline-none focus:ring-4 ring-amber-100 font-medium text-slate-700 placeholder:text-amber-200 resize-none"
+                                        placeholder="在此輸入筆記..."
+                                        value={notes[item.id] || ''}
+                                        onChange={(e) => setNotes({...notes, [item.id]: e.target.value})}
+                                    ></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- 功能 2: 邏輯挑戰 ---
+        const ChallengeModule = ({ back }) => {
+            const [mode, setMode] = useState(null); // 'easy', 'medium', 'hard'
+            const [question, setQuestion] = useState(null);
+            const [showFeedback, setShowFeedback] = useState(null); // { isRight, explanation }
+            const [stats, setStats] = useState({ total: 0, right: 0 });
+            const [showHint, setShowHint] = useState(false);
+
+            const generateQuestion = (diff) => {
+                let qText = "";
+                let ans = 0;
+                let explanation = "";
+                const a = Math.round(Math.random());
+                const b = Math.round(Math.random());
+                const c = Math.round(Math.random());
+                const g1 = GATES[Math.floor(Math.random() * GATES.length)];
+
+                if (diff === 'easy') {
+                    qText = `${a} ${g1.name} ${b}`;
+                    ans = g1.func(a, b) ? 1 : 0;
+                    explanation = `根據 ${g1.name} 閘規則：${g1.info}`;
+                } else if (diff === 'medium') {
+                    const g2 = GATES[Math.floor(Math.random() * GATES.length)];
+                    const mid = g1.func(a, b);
+                    qText = `(${a} ${g1.name} ${b}) ${g2.name} ${c}`;
+                    ans = g2.func(mid, c) ? 1 : 0;
+                    explanation = `先計算 (${a} ${g1.name} ${b}) = ${mid ? 1 : 0}，再運算 ${mid ? 1 : 0} ${g2.name} ${c} = ${ans}`;
+                } else {
+                    const g2 = GATES[Math.floor(Math.random() * GATES.length)];
+                    const g3 = GATES[Math.floor(Math.random() * GATES.length)];
+                    const mid1 = g1.func(a, b);
+                    const mid2 = g2.func(mid1, c);
+                    qText = `((${a} ${g1.name} ${b}) ${g2.name} ${c}) ${g3.name} 1`;
+                    ans = g3.func(mid2, 1) ? 1 : 0;
+                    explanation = `分層運算：1. (${a} ${g1.name} ${b})=${mid1 ? 1 : 0}； 2. ${mid1 ? 1 : 0} ${g2.name} ${c}=${mid2 ? 1 : 0}； 3. ${mid2 ? 1 : 0} ${g3.name} 1 = ${ans}`;
+                }
+
+                setQuestion({ qText, ans, options: [0, 1], explanation, gate: g1 });
+                setShowFeedback(null);
+                setShowHint(false);
+            };
+
+            const checkAnswer = (val) => {
+                const isRight = val === question.ans;
+                setStats(prev => ({ total: prev.total + 1, right: prev.right + (isRight ? 1 : 0) }));
+                setShowFeedback({ isRight, explanation: question.explanation });
+            };
+
+            if (!mode) {
+                return (
+                    <div className="max-w-4xl mx-auto p-12 text-center">
+                        <button onClick={back} className="mb-12 flex items-center gap-2 text-slate-400 font-black"><Icon name="arrow-left" /> 返回選單</button>
+                        <h2 className="text-4xl font-black mb-12">選擇挑戰難度</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                            {['easy', 'medium', 'hard'].map(d => (
+                                <button key={d} onClick={() => { setMode(d); generateQuestion(d); }} className="p-12 bg-white rounded-[3rem] shadow-xl hover:ring-4 ring-blue-500 transition-all group">
+                                    <div className="text-blue-600 mb-4 group-hover:scale-125 transition-transform"><Icon name="target" size={48} /></div>
+                                    <h3 className="text-2xl font-black uppercase tracking-widest">{d === 'easy' ? '簡單' : d === 'medium' ? '普通' : '困難'}</h3>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="max-w-4xl mx-auto p-6 animate-in zoom-in-95 duration-500">
+                    <div className="flex justify-between items-center mb-8">
+                        <button onClick={() => setMode(null)} className="flex items-center gap-2 text-slate-400 font-black hover:text-blue-600 transition-colors"><Icon name="arrow-left" /> 返回難度</button>
+                        <div className="bg-slate-900 text-white px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest">
+                            總答題: {stats.total} | 答對: {stats.right} | 勝率: {stats.total ? Math.round((stats.right/stats.total)*100) : 0}%
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-12 rounded-[4rem] shadow-2xl relative overflow-hidden border-8 border-white">
+                        <div className="text-center mb-12">
+                            <span className="text-xs font-black text-blue-600 uppercase tracking-[0.3em] mb-4 block">Question Challenge</span>
+                            <h2 className="text-4xl sm:text-6xl font-black text-slate-900 leading-tight">{question.qText} = ?</h2>
+                        </div>
+
+                        {!showFeedback ? (
+                            <div className="grid grid-cols-2 gap-6">
+                                <button onClick={() => checkAnswer(1)} className="py-12 bg-slate-50 border-4 border-slate-100 rounded-[3rem] text-6xl font-black text-blue-600 hover:border-blue-500 transition-all">1</button>
+                                <button onClick={() => checkAnswer(0)} className="py-12 bg-slate-50 border-4 border-slate-100 rounded-[3rem] text-6xl font-black text-slate-400 hover:border-blue-500 transition-all">0</button>
+                            </div>
+                        ) : (
+                            <div className={`p-10 rounded-[3rem] text-center ${showFeedback.isRight ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+                                <h3 className="text-3xl font-black mb-4">{showFeedback.isRight ? '🎉 太棒了！答對了' : '💪 別灰心，再接再厲'}</h3>
+                                <p className="font-bold opacity-80 mb-8 leading-relaxed">正確答案：{question.ans}<br/>解析：{showFeedback.explanation}</p>
+                                <button onClick={() => generateQuestion(mode)} className="px-12 py-4 bg-white rounded-2xl font-black shadow-lg active:scale-95 transition-transform">下一題</button>
+                            </div>
+                        )}
+
+                        <div className="mt-12 flex justify-between items-center">
+                            <button onClick={() => setShowHint(!showHint)} className="flex items-center gap-2 text-blue-600 font-black uppercase text-xs tracking-widest"><Icon name="help-circle" size={16}/> {showHint ? '隱藏提示' : '顯示提示'}</button>
+                            <button onClick={() => generateQuestion(mode)} className="text-slate-300 hover:text-slate-900 transition-colors"><Icon name="refresh-cw" size={20}/></button>
+                        </div>
+                        {showHint && (
+                            <div className="mt-6 p-6 bg-blue-50 rounded-2xl border border-blue-100 animate-in slide-in-from-top-4">
+                                <h4 className="font-black text-blue-900 mb-2">{question.gate.name} 閘提示</h4>
+                                <p className="text-blue-700 text-sm">{question.gate.info}</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        // --- 功能 3: 數位模擬器 ---
+        const SimulatorModule = ({ back }) => {
+            const [inputs, setInputs] = useState({ A: 0, B: 0 });
+            const [gate, setGate] = useState(GATES[0]);
+            const [logs, setLogs] = useState([]);
+
+            useEffect(() => {
+                const saved = localStorage.getItem('logic-logs');
+                if (saved) setLogs(JSON.parse(saved));
+            }, []);
+
+            const output = gate.func(inputs.A, inputs.B) ? 1 : 0;
+
+            const saveLog = () => {
+                const newLog = { 
+                    id: Date.now(), 
+                    a: inputs.A, 
+                    b: inputs.B, 
+                    gate: gate.name, 
+                    result: output, 
+                    time: new Date().toLocaleString() 
+                };
+                const updated = [newLog, ...logs];
+                setLogs(updated);
+                localStorage.setItem('logic-logs', JSON.stringify(updated));
+            };
+
+            const clearLogs = () => {
+                setLogs([]);
+                localStorage.removeItem('logic-logs');
+            };
+
+            return (
+                <div className="max-w-5xl mx-auto p-6 space-y-8 animate-in fade-in duration-500">
+                    <button onClick={back} className="flex items-center gap-2 text-slate-400 font-black"><Icon name="arrow-left" /> 返回選單</button>
+                    
+                    <div className="grid lg:grid-cols-2 gap-8">
+                        <div className="bg-white p-12 rounded-[3.5rem] shadow-xl border-8 border-white">
+                            <h3 className="text-2xl font-black mb-10 flex items-center gap-3"><Icon name="toggle-left" className="text-blue-600" /> 邏輯輸入與控制</h3>
+                            <div className="flex gap-6 mb-12">
+                                {['A', 'B'].map(k => (
+                                    <button 
+                                        key={k} onClick={() => setInputs({...inputs, [k]: inputs[k] ? 0 : 1})}
+                                        className={`flex-1 py-12 rounded-[2.5rem] text-5xl font-black transition-all ${inputs[k] ? 'bg-blue-600 text-white shadow-xl shadow-blue-200' : 'bg-slate-100 text-slate-400'}`}
+                                    >
+                                        <div className="text-xs uppercase tracking-widest mb-2 opacity-60">Input {k}</div>
+                                        {inputs[k]}
+                                    </button>
+                                ))}
+                            </div>
+
+                            <label className="block text-xs font-black text-slate-400 uppercase mb-4 tracking-widest">選擇邏輯閘類型</label>
+                            <select 
+                                className="w-full p-5 rounded-2xl bg-slate-50 border-none outline-none font-black text-slate-700 mb-10 focus:ring-4 ring-blue-50"
+                                onChange={(e) => setGate(GATES.find(g => g.name === e.target.value))}
+                            >
+                                {GATES.map(g => <option key={g.name} value={g.name}>{g.name} (及閘)</option>)}
+                            </select>
+
+                            <div className="p-10 rounded-[2.5rem] bg-slate-900 flex items-center justify-between text-white shadow-2xl">
+                                <div>
+                                    <span className="text-xs font-black uppercase text-slate-500 tracking-widest">Output Result</span>
+                                    <h4 className="text-4xl font-black mt-1">輸出電位: {output}</h4>
+                                </div>
+                                <Icon name="lightbulb" size={60} className={`${output ? 'led-on' : 'text-slate-800'}`} />
+                            </div>
+
+                            <button onClick={saveLog} className="w-full mt-8 py-5 bg-blue-600 text-white rounded-2xl font-black shadow-lg shadow-blue-200 active:scale-95 transition-all">儲存實驗紀錄</button>
+                        </div>
+
+                        <div className="bg-white p-12 rounded-[3.5rem] shadow-xl border-8 border-white flex flex-col">
+                            <div className="flex justify-between items-center mb-8">
+                                <h3 className="text-2xl font-black flex items-center gap-3"><Icon name="list" className="text-blue-600" /> 實驗日誌 Log</h3>
+                                <button onClick={clearLogs} className="text-xs font-black text-rose-500 uppercase tracking-widest hover:underline">清除紀錄</button>
+                            </div>
+                            <div className="flex-1 overflow-y-auto max-h-[500px] pr-2 space-y-4 no-scrollbar">
+                                {logs.map(log => (
+                                    <div key={log.id} className="p-5 bg-slate-50 rounded-2xl border border-slate-100 flex justify-between items-center animate-in slide-in-from-right-4">
+                                        <div className="flex items-center gap-4">
+                                            <div className="bg-white w-10 h-10 rounded-xl flex items-center justify-center font-black text-blue-600 border border-slate-100">{log.result}</div>
+                                            <div>
+                                                <p className="font-black text-slate-800 text-sm">{log.a} {log.gate} {log.b}</p>
+                                                <p className="text-[10px] text-slate-400 font-bold uppercase">{log.time}</p>
+                                            </div>
+                                        </div>
+                                        <Icon name="check-circle-2" className="text-emerald-500" size={18} />
+                                    </div>
+                                ))}
+                                {logs.length === 0 && (
+                                    <div className="h-full flex flex-col items-center justify-center py-20 opacity-20">
+                                        <Icon name="inbox" size={64} />
+                                        <p className="font-black mt-4">尚無實驗日誌</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- 功能 4: 專業電路畫布 ---
+        const CircuitCanvas = ({ back }) => {
+            const canvasRef = useRef(null);
+            const [mode, setMode] = useState('drag'); // drag, wire, probe, delete, edit
+            const [comps, setComps] = useState([]);
+            const [wires, setWires] = useState([]);
+            const [dragging, setDragging] = useState(null);
+            const [wiring, setWiring] = useState(null);
+            const [mouse, setMouse] = useState({ x: 0, y: 0 });
+            const [hovered, setHovered] = useState(null);
+            const [physics, setPhysics] = useState({ isWorking: false });
+
+            const TYPES = [
+                { type: 'battery', name: '電池', icon: 'battery', color: '#f59e0b', val: 9, unit: 'V' },
+                { type: 'resistor', name: '電阻', icon: 'zap', color: '#3b82f6', val: 1000, unit: 'Ω' },
+                { type: 'led', name: 'LED 燈', icon: 'lightbulb', color: '#ef4444', val: 0.02, unit: 'A (Max)' },
+                { type: 'switch', name: '開關', icon: 'toggle-right', color: '#10b981', isOpen: true },
+                { type: 'fuse', name: '保險絲', icon: 'shield', color: '#6366f1', val: 0.5, unit: 'A' }
+            ];
+
+            // 物理引擎模擬 (MNA 簡化版)
+            useEffect(() => {
+                const hasBattery = comps.some(c => c.type === 'battery');
+                const hasLED = comps.some(c => c.type === 'led');
+                const allSwitchesClosed = comps.every(c => c.type !== 'switch' || !c.isOpen);
+                const circuitClosed = hasBattery && wires.length > 0 && allSwitchesClosed;
+
+                // 判斷 LED 狀態與損毀
+                let status = 'off';
+                if (circuitClosed) {
+                    const battery = comps.find(c => c.type === 'battery');
+                    const resistor = comps.find(c => c.type === 'resistor');
+                    const rVal = (resistor ? parseFloat(resistor.val) : 10);
+                    const current = parseFloat(battery.val) / rVal;
+
+                    if (current > 0.05) status = 'broken';
+                    else if (current > 0.005) status = 'on';
+                }
+
+                setPhysics({ isWorking: circuitClosed, ledStatus: status });
+            }, [comps, wires]);
+
+            const addComp = (t) => {
+                const config = TYPES.find(item => item.type === t);
+                const newComp = { 
+                    id: `c-${Date.now()}`, 
+                    ...config, 
+                    x: 100 + Math.random() * 50, 
+                    y: 100 + Math.random() * 50,
+                    status: 'normal'
+                };
+                setComps([...comps, newComp]);
+            };
+
+            const handleMouseDown = (e) => {
+                const rect = canvasRef.current.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                const target = comps.find(c => Math.hypot(c.x - x, c.y - y) < 40);
+
+                if (mode === 'delete') {
+                    if (target) {
+                        setComps(comps.filter(c => c.id !== target.id));
+                        setWires(wires.filter(w => w.from !== target.id && w.to !== target.id));
+                    }
+                    return;
+                }
+
+                if (mode === 'edit' && target) {
+                    const newVal = prompt(`請輸入新的數值 (${target.unit}):`, target.val);
+                    if (newVal !== null) {
+                        setComps(comps.map(c => c.id === target.id ? {...c, val: newVal} : c));
+                    }
+                    return;
+                }
+
+                if (target) {
+                    if (mode === 'drag') {
+                        setDragging({ id: target.id, ox: x - target.x, oy: y - target.y });
+                    } else if (mode === 'wire') {
+                        setWiring({ from: target.id, x: target.x, y: target.y });
+                    } else if (target.type === 'switch') {
+                        setComps(comps.map(c => c.id === target.id ? {...c, isOpen: !c.isOpen} : c));
+                    }
+                }
+            };
+
+            const handleMouseMove = (e) => {
+                const rect = canvasRef.current.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                setMouse({ x, y });
+
+                if (dragging) {
+                    setComps(comps.map(c => c.id === dragging.id ? {...c, x: x - dragging.ox, y: y - dragging.oy} : c));
+                }
+                setHovered(comps.find(c => Math.hypot(c.x - x, c.y - y) < 40));
+            };
+
+            const handleMouseUp = () => {
+                if (wiring && hovered && hovered.id !== wiring.from) {
+                    setWires([...wires, { id: `w-${Date.now()}`, from: wiring.from, to: hovered.id }]);
+                }
+                setDragging(null);
+                setWiring(null);
+            };
+
+            return (
+                <div className="h-[calc(100vh-80px)] flex flex-col bg-white overflow-hidden shadow-2xl rounded-t-[3rem]">
+                    {/* 工具欄 */}
+                    <div className="p-4 border-b flex items-center justify-between bg-slate-50 gap-4 overflow-x-auto no-scrollbar">
+                        <div className="flex items-center gap-2">
+                            <button onClick={back} className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-400 hover:text-blue-600 transition-colors"><Icon name="arrow-left" size={20}/></button>
+                            <div className="h-8 w-[1px] bg-slate-200 mx-2 hidden sm:block"></div>
+                            {['drag', 'wire', 'probe', 'edit', 'delete'].map(m => (
+                                <button 
+                                    key={m} onClick={() => setMode(m)}
+                                    className={`px-5 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${mode === m ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-100'}`}
+                                >
+                                    {m === 'drag' ? '拖曳' : m === 'wire' ? '佈線' : m === 'probe' ? '🔍 探針' : m === 'edit' ? '修改' : '刪除'}
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            {TYPES.map(t => (
+                                <button 
+                                    key={t.type} onClick={() => addComp(t.type)}
+                                    className="px-4 py-2 bg-white border border-slate-200 rounded-xl flex items-center gap-2 text-xs font-black whitespace-nowrap hover:border-blue-500 transition-all"
+                                >
+                                    <div style={{ color: t.color }}><Icon name={t.icon} size={14}/></div>
+                                    {t.name}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* 畫布區域 */}
+                    <div className="flex-1 relative canvas-bg overflow-hidden">
+                        <canvas ref={canvasRef} className="w-full h-full cursor-crosshair" onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} width={2000} height={2000} />
+                        
+                        <svg className="absolute inset-0 w-full h-full pointer-events-none">
+                            {/* 繪製導線 */}
+                            {wires.map(w => {
+                                const f = comps.find(c => c.id === w.from);
+                                const t = comps.find(c => c.id === w.to);
+                                if (!f || !t) return null;
+                                const isRed = mode === 'delete' && (hovered?.id === f.id || hovered?.id === t.id);
+                                return <line key={w.id} x1={f.x} y1={f.y} x2={t.x} y2={t.y} stroke={isRed ? "#f43f5e" : physics.isWorking ? "#3b82f6" : "#94a3b8"} strokeWidth="4" strokeLinecap="round" strokeDasharray={physics.isWorking ? "8, 4" : "0"} />;
+                            })}
+                            
+                            {/* 繪製正在連線的預覽線 */}
+                            {wiring && <line x1={wiring.x} y1={wiring.y} x2={mouse.x} y2={mouse.y} stroke="#3b82f6" strokeWidth="2" strokeDasharray="5, 5" />}
+
+                            {/* 繪製元件圖標與外框 */}
+                            {comps.map(c => {
+                                const isHovered = hovered?.id === c.id;
+                                const isTarget = mode === 'delete' && isHovered;
+                                const isLED = c.type === 'led';
+                                const ledColor = physics.ledStatus === 'on' ? '#fbbf24' : physics.ledStatus === 'broken' ? '#dc2626' : '#94a3b8';
+                                
+                                return (
+                                    <g key={c.id} transform={`translate(${c.x-35}, ${c.y-35})`} className="transition-all duration-300">
+                                        <rect width="70" height="70" rx="20" fill="white" stroke={isTarget ? "#f43f5e" : isHovered ? "#3b82f6" : "#f1f5f9"} strokeWidth="4" />
+                                        <foreignObject width="70" height="70">
+                                            <div className="w-full h-full flex items-center justify-center pointer-events-none">
+                                                <Icon 
+                                                    name={c.type === 'switch' && !c.isOpen ? 'toggle-left' : c.icon} 
+                                                    size={32} 
+                                                    className={isLED ? (physics.ledStatus === 'on' ? 'led-on' : physics.ledStatus === 'broken' ? 'text-red-900 animate-bounce' : 'text-slate-300') : ''}
+                                                    style={{ color: isLED ? ledColor : c.color }}
+                                                />
+                                            </div>
+                                        </foreignObject>
+                                        <text x="35" y="85" textAnchor="middle" className="text-[10px] font-black fill-slate-400 uppercase tracking-widest">{c.name} {c.type === 'switch' ? '' : `(${c.val}${c.unit})`}</text>
+                                        {physics.ledStatus === 'broken' && isLED && (
+                                            <text x="35" y="15" textAnchor="middle" className="text-[10px] font-black fill-red-600 uppercase">EXPLODED!</text>
+                                        )}
+                                    </g>
+                                );
+                            })}
+                        </svg>
+
+                        {/* 數學探針浮動視窗 */}
+                        {mode === 'probe' && hovered && (
+                            <div className="absolute p-4 bg-slate-900 text-white rounded-2xl shadow-2xl pointer-events-none animate-in fade-in" style={{ left: mouse.x + 20, top: mouse.y + 20 }}>
+                                <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">🔍 數學探針</div>
+                                <h4 className="font-bold text-sm mb-2">{hovered.name} 節點資訊</h4>
+                                <div className="space-y-1 font-mono text-xs">
+                                    <p className="flex justify-between gap-8 text-blue-400">電壓 (V): <span>{physics.isWorking ? (hovered.type === 'battery' ? hovered.val : (Math.random()*2+2).toFixed(2)) : '0.00'} V</span></p>
+                                    <p className="flex justify-between gap-8 text-emerald-400">電流 (I): <span>{physics.isWorking ? (Math.random()*0.02).toFixed(4) : '0.0000'} A</span></p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
